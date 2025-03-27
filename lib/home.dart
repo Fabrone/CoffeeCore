@@ -8,6 +8,7 @@ import 'package:coffeecore/screens/pests_diseases_home.dart';
 import 'package:coffeecore/screens/user_profile.dart';
 import 'package:coffeecore/screens/weather_screen.dart';
 import 'package:coffeecore/screens/market_prices.dart';
+import 'package:coffeecore/screens/market_officer_screen.dart'; // Import MarketOfficerScreen
 import 'package:coffeecore/authentication/login.dart';
 import 'package:coffeecore/settings/notifications_settings_screen.dart';
 import 'package:coffeecore/settings/settings_screen.dart';
@@ -29,17 +30,18 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? _userData;
   Uint8List? _profileImageBytes;
   bool _isMainAdmin = false;
+  bool _isMarketOfficer = false; // New flag for Market Officer
   final logger = Logger(printer: PrettyPrinter());
   String? _userId;
 
   final List<String> _carouselImages = [
-    'assets/coffee_weather.jpg',       
-    'assets/coffee_field_data.jpg',    
-    'assets/coffee_pestdisease_management.jpg', 
-    'assets/coffee_funds_management.jpg', 
+    'assets/coffee_weather.jpg',
+    'assets/coffee_field_data.jpg',
+    'assets/coffee_pestdisease_management.jpg',
+    'assets/coffee_funds_management.jpg',
     'assets/coffee_manuals.jpg',
     'assets/coffee_farming_tips.jpg',
-    'assets/coffee_soil.jpg',          
+    'assets/coffee_soil.jpg',
   ];
 
   @override
@@ -69,6 +71,12 @@ class _HomePageState extends State<HomePage> {
             .get();
         bool isAdmin = adminSnapshot.exists;
 
+        DocumentSnapshot marketOfficerSnapshot = await FirebaseFirestore.instance
+            .collection('Market Officers')
+            .doc(user.uid)
+            .get();
+        bool isMarketOfficer = marketOfficerSnapshot.exists;
+
         String? profileImageBase64 = appUser.profileImage;
         Uint8List? decodedImage;
 
@@ -77,12 +85,13 @@ class _HomePageState extends State<HomePage> {
         } catch (e) {
           logger.e('Error decoding profile image: $e');
         }
-      
+
         setState(() {
           _userData = appUser.toMap();
           _profileImageBytes = decodedImage;
           _isMainAdmin = isAdmin;
-          logger.i('Initial fetch - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin');
+          _isMarketOfficer = isMarketOfficer; // Set Market Officer status
+          logger.i('Initial fetch - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsMarketOfficer: $_isMarketOfficer');
         });
       } else {
         logger.w('No user data found in Firestore for UID: ${user.uid}');
@@ -150,6 +159,19 @@ class _HomePageState extends State<HomePage> {
           });
         }
       });
+
+      FirebaseFirestore.instance
+          .collection('Market Officers')
+          .doc(user.uid)
+          .snapshots()
+          .listen((marketOfficerSnapshot) {
+        if (mounted) {
+          setState(() {
+            _isMarketOfficer = marketOfficerSnapshot.exists;
+            logger.i('Market Officer status updated: $_isMarketOfficer');
+          });
+        }
+      });
     }
   }
 
@@ -180,7 +202,7 @@ class _HomePageState extends State<HomePage> {
             'CoffeeCore',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
-          backgroundColor: Colors.brown[700], // Coffee-inspired color
+          backgroundColor: Colors.brown[700],
           leading: Builder(
             builder: (context) => IconButton(
               icon: const Icon(Icons.menu, color: Colors.white, size: 40),
@@ -214,8 +236,18 @@ class _HomePageState extends State<HomePage> {
             if (_isMainAdmin)
               _buildAdminButton()
             else
-              Builder(
-                builder: (context) => _buildMenuButton(context),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Builder(
+                    builder: (context) => _buildMenuButton(context),
+                  ),
+                  if (_isMarketOfficer) // Add "Set Prices" button for Market Officers
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16.0),
+                      child: _buildMarketOfficerButton(),
+                    ),
+                ],
               ),
           ],
         ),
@@ -224,41 +256,56 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-Widget _buildAdminButton() {
-  return Padding(
-    padding: const EdgeInsets.all(16.0),
-    child: ElevatedButton.icon(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const CoffeeManagementScreen()),
-        );
-      }, // Properly closed the onPressed callback
-      icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
-      label: const Text('Admin Management', style: TextStyle(color: Colors.white)),
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        backgroundColor: Colors.brown[700],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    ),
-  );
-}
-
-  Widget _buildMenuButton(BuildContext scaffoldContext) {
+  Widget _buildAdminButton() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: ElevatedButton.icon(
         onPressed: () {
-          Scaffold.of(scaffoldContext).openDrawer();
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CoffeeManagementScreen()),
+          );
         },
-        icon: const Icon(Icons.menu, color: Colors.white),
-        label: const Text('MENU', style: TextStyle(color: Colors.white)),
+        icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
+        label: const Text('Admin Management', style: TextStyle(color: Colors.white)),
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           backgroundColor: Colors.brown[700],
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMenuButton(BuildContext scaffoldContext) {
+    return ElevatedButton.icon(
+      onPressed: () {
+        Scaffold.of(scaffoldContext).openDrawer();
+      },
+      icon: const Icon(Icons.menu, color: Colors.white),
+      label: const Text('MENU', style: TextStyle(color: Colors.white)),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        backgroundColor: Colors.brown[700],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _buildMarketOfficerButton() {
+    return ElevatedButton.icon(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const MarketOfficerScreen()),
+        );
+      },
+      icon: const Icon(Icons.price_change, color: Colors.white),
+      label: const Text('Set Prices', style: TextStyle(color: Colors.white)),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        backgroundColor: Colors.brown[700],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -338,11 +385,11 @@ Widget _buildAdminButton() {
         margin: const EdgeInsets.all(10),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.brown[50], // Light coffee tone
+          color: Colors.brown[50],
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.shade500.withAlpha(128), // 50% opacity (128/255)
+              color: Colors.grey.shade500.withAlpha(128),
               spreadRadius: 1,
               blurRadius: 5,
               offset: const Offset(0, 3),
