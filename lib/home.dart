@@ -280,13 +280,13 @@ Widget _buildAdminButton() {
         items: _carouselImages.map((image) {
           int index = _carouselImages.indexOf(image);
           List<String> labels = [
-            'Coffee Weather Forecasts',
+            'Get Weather Forecasts',
             'Record Coffee Field Data',
-            'Coffee Pest Management',
+            'Manage Pests & Diseases',
             'Manage Coffee Farming',
             'Coffee Farming Manuals',
-            'Coffee Farming Tips',
-            'Coffee Soil Insights',
+            'Get Coffee Farming Tips',
+            'Explore Coffee Soil Insights',
           ];
           return Stack(
             children: [
@@ -427,10 +427,10 @@ Widget _buildAdminButton() {
             Navigator.pop(context);
             setState(() {});
           }),
-          _buildDrawerItem(Icons.cloud, 'Coffee Weather', () {
+          _buildDrawerItem(Icons.cloud, 'Weather', () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const WeatherScreen()));
           }),
-          _buildDrawerItem(Icons.input, 'Coffee Field Data', () {
+          _buildDrawerItem(Icons.input, 'Field Data (Soil)', () {
             logger.i('Navigating to CoffeeManagementScreen, userId: $_userId');
             if (_userId != null) {
               Navigator.push(
@@ -445,10 +445,10 @@ Widget _buildAdminButton() {
               );
             }
           }),
-          _buildDrawerItem(Icons.pest_control, 'Coffee Pests & Diseases', () {
+          _buildDrawerItem(Icons.pest_control, 'Pests & Diseases', () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()));
           }),
-          _buildDrawerItem(Icons.local_cafe, 'Coffee Management', () {
+          _buildDrawerItem(Icons.local_cafe, 'Farm Management', () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const CoffeeManagementScreen()));
           }),
           _buildDrawerItem(Icons.book, 'Coffee Manuals', () {

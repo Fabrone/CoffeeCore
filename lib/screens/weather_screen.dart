@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:logger/logger.dart';
-import 'package:coffeecore/config.dart'; 
+import 'package:coffeecore/config.dart';
 
 class WeatherScreen extends StatefulWidget {
   const WeatherScreen({super.key});
@@ -17,6 +17,7 @@ class WeatherScreenState extends State<WeatherScreen> {
   Map<String, List<Map<String, dynamic>>>? _dailyForecast;
   bool _isLoading = false;
   final logger = Logger(printer: PrettyPrinter());
+  static final Color coffeeBrown = Colors.brown[700]!; // Coffee theme color
 
   Future<Map<String, double>?> _getCoordinates(String location) async {
     final geoUrl = Uri.parse(
@@ -160,18 +161,26 @@ class WeatherScreenState extends State<WeatherScreen> {
   Widget build(BuildContext context) {
     return Theme(
       data: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Colors.blueGrey[50],
+        primarySwatch: Colors.brown, // Coffee brown as primary swatch
+        scaffoldBackgroundColor: Colors.blueGrey[50], // Original background unchanged
         textTheme: const TextTheme(
           bodyMedium: TextStyle(color: Colors.black87),
-          titleLarge: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
+          titleLarge: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold), // Original blue titles unchanged
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color.fromARGB(255, 3, 39, 4), 
+            backgroundColor: coffeeBrown, // Coffee brown buttons
             foregroundColor: Colors.white, // White text/icons on buttons
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          filled: true,
+          fillColor: Colors.white,
+          prefixIconColor: coffeeBrown, // Coffee brown for location icon
+          labelStyle: const TextStyle(color: Colors.black54), // Original label color
+          hintStyle: const TextStyle(color: Colors.grey), // Original hint color
         ),
       ),
       child: Scaffold(
@@ -180,11 +189,11 @@ class WeatherScreenState extends State<WeatherScreen> {
             'Weather Forecast',
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Colors.white, 
+              color: Colors.white,
             ),
           ),
           elevation: 0,
-          backgroundColor: Color.fromARGB(255, 3, 39, 4),
+          backgroundColor: coffeeBrown, // Coffee brown AppBar
           foregroundColor: Colors.white,
         ),
         body: Padding(
@@ -201,23 +210,17 @@ class WeatherScreenState extends State<WeatherScreen> {
                   DropdownMenuItem(value: 'cloudy', child: Text('Cloudy')),
                 ],
                 onChanged: (value) => setState(() => _selectedActualWeather = value),
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Your Observed Weather',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: Colors.white,
                 ),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _locationController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Location',
                   hintText: 'e.g., Nairobi',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: Icon(Icons.location_on, color: Color.fromARGB(255, 3, 39, 4)), 
+                  prefixIcon: Icon(Icons.location_on),
                 ),
               ),
               const SizedBox(height: 16),
@@ -227,7 +230,7 @@ class WeatherScreenState extends State<WeatherScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_isLoading) const CircularProgressIndicator(color: Colors.white),
-                    if (!_isLoading) const Icon(Icons.cloud_download, color: Color.fromARGB(255, 3, 39, 4)),
+                    if (!_isLoading) const Icon(Icons.cloud_download),
                     const SizedBox(width: 8),
                     Text(_isLoading ? 'Fetching...' : 'Get Forecast'),
                   ],
@@ -236,7 +239,7 @@ class WeatherScreenState extends State<WeatherScreen> {
               const SizedBox(height: 16),
               Expanded(
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
+                    ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent)) // Original blue spinner
                     : _dailyForecast != null
                         ? ListView.builder(
                             itemCount: _dailyForecast!.length,
@@ -283,7 +286,7 @@ class WeatherScreenState extends State<WeatherScreen> {
                                                       ),
                                                       Row(
                                                         children: [
-                                                          const Icon(Icons.thermostat, color: Colors.red, size: 20),
+                                                          const Icon(Icons.thermostat, color: Colors.red, size: 20), // Original red
                                                           const SizedBox(width: 8),
                                                           Text(
                                                             '${forecast['temp'].toStringAsFixed(1)}°C',
@@ -293,21 +296,21 @@ class WeatherScreenState extends State<WeatherScreen> {
                                                       ),
                                                       Row(
                                                         children: [
-                                                          const Icon(Icons.water, color: Colors.blueGrey, size: 20), // Icon for humidity
+                                                          const Icon(Icons.water, color: Colors.blueGrey, size: 20), // Original blueGrey
                                                           const SizedBox(width: 8),
                                                           Text('Humidity: ${forecast['humidity']}%'),
                                                         ],
                                                       ),
                                                       Row(
                                                         children: [
-                                                          const Icon(Icons.cloud, color: Colors.grey, size: 20), // Icon for clouds
+                                                          const Icon(Icons.cloud, color: Colors.grey, size: 20), // Original grey
                                                           const SizedBox(width: 8),
                                                           Text('Clouds: ${forecast['clouds']}%'),
                                                         ],
                                                       ),
                                                       Row(
                                                         children: [
-                                                          const Icon(Icons.water_drop, color: Colors.blue, size: 20),
+                                                          const Icon(Icons.water_drop, color: Colors.blue, size: 20), // Original blue
                                                           const SizedBox(width: 8),
                                                           Text('Rain: ${forecast['rainfall'].toStringAsFixed(1)} mm'),
                                                         ],

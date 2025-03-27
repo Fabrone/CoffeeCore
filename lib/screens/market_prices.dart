@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:coffeecore/models/market_data.dart'; // Ensure this exists
-import 'package:coffeecore/screens/view_saved_data_page.dart'; // Ensure this exists
+import 'package:coffeecore/models/market_data.dart';
+import 'package:coffeecore/models/market_price.dart';
+import 'package:coffeecore/screens/view_saved_data_page.dart';
 
 class MarketPricesWidget extends StatefulWidget {
   const MarketPricesWidget({super.key});
@@ -13,22 +14,20 @@ class MarketPricesWidget extends StatefulWidget {
 
 class MarketPricesWidgetState extends State<MarketPricesWidget> {
   String? _selectedRegion;
-  String? _selectedCoffeeVariety; // Updated to reflect coffee focus
+  String? _selectedCoffeeVariety;
   final TextEditingController _marketController = TextEditingController();
   final TextEditingController _retailPriceController = TextEditingController();
   double? _predictedPrice;
   double? _userRetailPrice;
   bool _isLoading = false;
 
-  static final Color coffeeBrown = Colors.brown[700]!; // CoffeeCore theme color
+  static final Color coffeeBrown = Colors.brown[700]!;
+  final List<String> _regions = ['Nairobi', 'Coast', 'Lake', 'Rift Valley', 'Central', 'Eastern'];
 
-  // Mock prices for coffee varieties (in Ksh/kg)
-  final Map<String, double> _mockPrices = {
-    "Arabica": 250.0,
-    "Robusta": 180.0,
-    "Liberica": 200.0,
-    "Excelsa": 220.0,
-  };
+  Future<List<String>> _fetchVarieties() async {
+    QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('market_prices').get();
+    return snapshot.docs.map((doc) => doc['variety'] as String).toSet().toList();
+  }
 
   @override
   void dispose() {
@@ -38,15 +37,27 @@ class MarketPricesWidgetState extends State<MarketPricesWidget> {
   }
 
   void _showPredictedPrice() async {
-    if (_selectedCoffeeVariety != null && _mockPrices.containsKey(_selectedCoffeeVariety)) {
-      setState(() => _isLoading = true);
-      await Future.delayed(const Duration(seconds: 1)); // Simulated delay
-      setState(() {
-        _predictedPrice = _mockPrices[_selectedCoffeeVariety];
-        _isLoading = false;
-      });
-    } else {
-      _showLogger('Please select a coffee variety.');
+    if (_selectedRegion == null || _selectedCoffeeVariety == null) {
+      _showLogger('Please select a region and coffee variety.');
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      String docId = '${_selectedRegion}_$_selectedCoffeeVariety';
+      DocumentSnapshot doc = await FirebaseFirestore.instance.collection('market_prices').doc(docId).get();
+      if (doc.exists) {
+        final marketPrice = MarketPrice.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>, null);
+        setState(() {
+          _predictedPrice = marketPrice.price;
+          _isLoading = false;
+        });
+      } else {
+        _showLogger('No official price available for $_selectedCoffeeVariety in $_selectedRegion.');
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      _showLogger('Error fetching price: $e');
+      setState(() => _isLoading = false);
     }
   }
 
@@ -76,7 +87,7 @@ class MarketPricesWidgetState extends State<MarketPricesWidget> {
     final marketData = MarketData(
       region: _selectedRegion!,
       market: _marketController.text.trim(),
-      cropType: _selectedCoffeeVariety!, // Using "cropType" as "coffee variety" in model
+      cropType: _selectedCoffeeVariety!,
       predictedPrice: _predictedPrice ?? 0.0,
       retailPrice: _userRetailPrice!,
       userId: user.uid,
@@ -84,10 +95,7 @@ class MarketPricesWidgetState extends State<MarketPricesWidget> {
     );
 
     try {
-      await FirebaseFirestore.instance
-          .collection('marketdata')
-          .doc()
-          .set(marketData.toMap());
+      await FirebaseFirestore.instance.collection('marketdata').doc().set(marketData.toMap());
       _showLogger('Coffee market price details saved successfully!');
     } catch (e) {
       _showLogger('Failed to save data: $e');
@@ -110,10 +118,7 @@ class MarketPricesWidgetState extends State<MarketPricesWidget> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          content: Text(
-            message,
-            textAlign: TextAlign.center,
-          ),
+          content: Text(message, textAlign: TextAlign.center),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -145,13 +150,7 @@ class MarketPricesWidgetState extends State<MarketPricesWidget> {
       ),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text(
-            'Market Prices', // Updated title
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
+          title: const Text('Market Prices', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           elevation: 0,
           backgroundColor: coffeeBrown,
           foregroundColor: Colors.white,
@@ -164,9 +163,7 @@ class MarketPricesWidgetState extends State<MarketPricesWidget> {
               children: [
                 DropdownButtonFormField<String>(
                   value: _selectedRegion,
-                  items: ['Nairobi', 'Coast', 'Lake', 'Rift Valley', 'Central', 'Eastern']
-                      .map((region) => DropdownMenuItem(value: region, child: Text(region)))
-                      .toList(),
+                  items: _regions.map((region) => DropdownMenuItem(value: region, child: Text(region))).toList(),
                   onChanged: (value) => setState(() => _selectedRegion = value),
                   decoration: InputDecoration(
                     labelText: 'Select Region',
@@ -189,19 +186,28 @@ class MarketPricesWidgetState extends State<MarketPricesWidget> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedCoffeeVariety,
-                  items: _mockPrices.keys
-                      .map((variety) => DropdownMenuItem(value: variety, child: Text(variety)))
-                      .toList(),
-                  onChanged: (value) => setState(() => _selectedCoffeeVariety = value),
-                  decoration: InputDecoration(
-                    labelText: 'Select Coffee Variety', // Updated label
-                    prefixIcon: Icon(Icons.local_cafe, color: coffeeBrown),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
+                FutureBuilder<List<String>>(
+                  future: _fetchVarieties(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const CircularProgressIndicator();
+                    }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Text('No varieties available');
+                    }
+                    return DropdownButtonFormField<String>(
+                      value: _selectedCoffeeVariety,
+                      items: snapshot.data!.map((variety) => DropdownMenuItem(value: variety, child: Text(variety))).toList(),
+                      onChanged: (value) => setState(() => _selectedCoffeeVariety = value),
+                      decoration: InputDecoration(
+                        labelText: 'Select Coffee Variety',
+                        prefixIcon: Icon(Icons.local_cafe, color: coffeeBrown),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
@@ -263,33 +269,21 @@ class MarketPricesWidgetState extends State<MarketPricesWidget> {
                     ElevatedButton.icon(
                       onPressed: _saveMarketPrice,
                       icon: const Icon(Icons.save, color: Colors.white),
-                      label: const Text(
-                        'Save',
-                        style: TextStyle(color: Colors.white),
-                      ),
+                      label: const Text('Save', style: TextStyle(color: Colors.white)),
                     ),
                     ElevatedButton.icon(
                       onPressed: _resetFields,
                       icon: const Icon(Icons.refresh, color: Colors.white),
-                      label: const Text(
-                        'Reset',
-                        style: TextStyle(color: Colors.white),
-                      ),
+                      label: const Text('Reset', style: TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Center(
                   child: ElevatedButton.icon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ViewSavedDataPage()),
-                    ),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ViewSavedDataPage())),
                     icon: const Icon(Icons.list, color: Colors.white),
-                    label: const Text(
-                      'View Saved Data',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                    label: const Text('View Saved Data', style: TextStyle(color: Colors.white)),
                   ),
                 ),
               ],
