@@ -1,0 +1,42 @@
+ 
+# Flutter/Dart related
+*.g.dart
+*.freezed.dart
+*.gr.dart
+*.iml
+*.idea
+*.dart_tool/
+*.flutter-plugins
+*.flutter-plugins-dependencies
+*.packages
+*.pub/
+*.pub-cache/
+build/
+.dart_tool/
+.packages
+.pub-cache/
+Flutter.podspec
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/Generated.xcconfig
+
+# Android related
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+
+# iOS related
+ios/.generated/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Generated.xcconfig
+ios/Pods/
+
+# Miscellaneous
+*.log
+*.lock
+*.DS_Store
+.env
+firebase.json
+firestore.indexes.json
+firestore.rules
