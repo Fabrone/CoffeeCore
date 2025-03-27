@@ -203,10 +203,9 @@ const Map<String, List<String>> constituencyWards = {
   'Wajir North': ['Gurar', 'Bute', 'Korondile', 'Malkagufu', 'Batalu', 'Danaba', 'Godoma'],
   'Wajir East': ['Wagberi', 'Township', 'Barwago', 'Khorof/Harar'],
   'Tarbaj': ['Elben', 'Sarman', 'Tarbaj', 'Wargadud'],
-  'Wajir West': ['Adan Awale', 'Arbajahan', 'Hadado/Athibohol', 'Wagalla/Ganyure'],
+  'Wajir West': ['Adan Awale', 'Arbajahan', 'Hadado/Athibohol', 'Wagalla', 'Ganyure'], 
   'Eldas': ['Eldas', 'Della', 'Lakoley South/Basir', 'Kone'],
   'Wajir South': ['Benane', 'Burder', 'Dadajabula', 'Habaswein', 'Lagboghol South', 'Ibrahim Ure'],
-
 // Mandera County
   'Mandera West': ['Takaba South', 'Takaba', 'Lagsure', 'Dandu', 'Gither'],
   'Banissa': ['Banissa', 'Derkhale', 'Guba', 'Malkamari', 'Kiliwehiri'],
@@ -250,8 +249,8 @@ const Map<String, List<String>> constituencyWards = {
   'Mwingi North': ['Ngomeni', 'Kyuso', 'Mumoni', 'Tharaka', 'Tseikuru'],
   'Mwingi West': ['Kyome/Thaana', 'Nguutani', 'Migwani', 'Kiomo/Kyethani'],
   'Mwingi Central': ['Central', 'Kivou', 'Nguni', 'Nuu', 'Mui', 'Waita'],
-  'Kitui West': ['Mutonguni', 'Kauwi', 'Matinyani', 'Kwa Mutonga/Kithumula'],
-  'Kitui Rural': ['Kisasi', 'Mbitini', 'Kwavonza/Yatta', 'Kanyangi'],
+  'Kitui West': ['Mutonguni', 'Kauwi', 'Matinyani', 'Kwa Mutonga/Kithumula', 'Kivani'], 
+  'Kitui Rural': ['Kisasi', 'Mbitini', 'Kwavonza/Yatta', 'Kanyangi', 'Yatta'], 
   'Kitui Central': ['Miambani', 'Township', 'Kyangwithya West', 'Mulango', 'Kyangwithya East'],
   'Kitui East': ['Zombe/Mwitika', 'Nzambani', 'Chuluni', 'Voo/Kyamatu'],
   'Kitui South': ['Ikanga/Kyatune', 'Mutomo', 'Mathima', 'Kanziko', 'Athi', 'Ikutha'],
@@ -261,7 +260,7 @@ const Map<String, List<String>> constituencyWards = {
   'Yatta': ['Ndalani', 'Matuu', 'Kithimani', 'Ikombe', 'Katangi'],
   'Kangundo': ['Kangundo North', 'Kangundo Central', 'Kangundo East', 'Kangundo West'],
   'Matungulu': ['Tala', 'Matungulu East', 'Matungulu West', 'Matungulu North', 'Kyeleni'],
-  'Kathiani': ['Mitaboni', 'Kathiani Central', 'Upper Kaewa/Kaani', 'Lower Kaewa/Iveti'],
+  'Kathiani': ['Mitaboni', 'Kathiani Central', 'Upper Kaewa/Kaani', 'Lower Kaewa/Iveti', 'Kaewa'], 
   'Mavoko': ['Athi River', 'Kinanie', 'Muthwani', 'Syokimau/Mulolongo'],
   'Machakos Town': ['Kalama', 'Mua', 'Mutituni', 'Machakos Central', 'Mumbuni North', 'Muvuti/Kiima-Kimwe'],
   'Mwala': ['Mbiuni', 'Makutano/Mwala', 'Masii', 'Muthetheni', 'Wamunyu', 'Kibauni'],
@@ -293,7 +292,8 @@ const Map<String, List<String>> constituencyWards = {
   'Mwea': ['Mutithi', 'Kangai', 'Wamumu', 'Nyagati', 'Murinduko', 'Gathigiriri', 'Tebere', 'Thiba'],
   'Gichugu': ['Kabare', 'Njukiini', 'Ngariama', 'Karumu', 'Baragwi'],
   'Ndia': ['Mukure', 'Kiine', 'Kariti'],
-  'Kirinyaga Central': ['Mutira', 'Kanyekiine', 'Kerugoya', 'Inoi', 'Karumandi'],
+  'Kirinyaga Central': ['Mutira', 'Kanyekiine', 'Kerugoya', 'Inoi'],
+
 // Murang’a County
   'Kangema': ['Kanyenyaini', 'Muguru', 'Rwathia'],
   'Mathioya': ['Gitugi', 'Kiru', 'Kamacharia'],
@@ -342,8 +342,9 @@ const Map<String, List<String>> constituencyWards = {
   'Saboti': ['Kinyoro', 'Matisi', 'Tuwani', 'Saboti', 'Machewa'],
   'Kiminini': ['Kiminini', 'Waitaluk', 'Sirende', 'Sikhendu', 'Hospital', 'Nabiswa'],
   'Cherangany': ['Sinyerere', 'Makutano', 'Kaplamai', 'Motosi', 'Cherangany/Suwerwa', 'Chepsiro/Kiptoror', 'Sitatunga'],
+
 // Uasin Gishu County
-  'Soy': ['Ziwa', 'Segero/Barsombe', 'Kipsomba', 'Soy', 'Kuinet/Kapsuswa'],
+  'Soy': ['Moi’s Bridge', 'Kapkures', 'Ziwa', 'Segero/Barsombe', 'Kipsomba', 'Soy', 'Kuinet/Kapsuswa'],
   'Turbo': ['Tapsagoi', 'Kiplombe', 'Ngenyilel', 'Turbo', 'Kamagut', 'Huruma'],
   'Moiben': ['Tembelio', 'Sergoit', 'Karuna/Meibeki', 'Moiben', 'Kimumu'],
   'Ainabkoi': ['Kapsoya', 'Kaptagat', 'Ainabkoi/Olare'],
@@ -367,8 +368,8 @@ const Map<String, List<String>> constituencyWards = {
 // Baringo County
   'Baringo North': ['Barwessa', 'Kabartonjo', 'Saimo/Kipsaraman', 'Saimo/Soi', 'Bartabwa'],
   'Baringo South': ['Marigat', 'Ilchamus', 'Mochongoi', 'Mukutani'],
-  'Baringo Central': ['Sacho', 'Tenges', 'Ewalel/Chapchap', 'Kapropita'],
-  'Mogotio': ['Mogotio', 'Emsos', 'Kisanana'],
+  'Baringo Central': ['Sacho', 'Tenges', 'Ewalel/Chapchap', 'Kapropita', 'Kapkuikui'], 
+  'Mogotio': ['Mogotio', 'Emsos', 'Kisanana', 'Ol Kokwe'], 
   'Eldama Ravine': ['Lembus', 'Lembus Kwen', 'Ravine', 'Mumberes/Maji Mazuri', 'Lembus/Perkerra'],
   'Tiaty': ['Tirioko', 'Kolowa', 'Ribkwo', 'Silale', 'Loiyamorock', 'Tangulbei/Korossi', 'Churo/Amaya'],
 
@@ -426,7 +427,7 @@ const Map<String, List<String>> constituencyWards = {
   'Lurambi': ['Butsotso East', 'Butsotso South', 'Butsotso Central', 'Sheywe', 'Mahiakalo', 'Shirere'],
   'Navakholo': ['Ingotse-Matiha', 'Shinoyi-Shikomari-Esumeyia', 'Bunyala West', 'Bunyala East', 'Bunyala Central'],
   'Mumias West': ['Mumias Central', 'Mumias North', 'Etenje', 'Musanda'],
-  'Mumias East': ['Lusheya/Lubinu', 'Malaha/Isongo/Makunga', 'East Wanga'],
+  'Mumias East': ['Lusheya/Lubinu', 'Malaha/Isongo/Makunga', 'East Wanga', 'Lureko'], 
   'Matungu': ['Koyonzo', 'Khalaba', 'Mayoni', 'Namamali'],
   'Butere': ['Marama West', 'Marama Central', 'Marenyo-Shianda', 'Marama North', 'Marama South'],
   'Khwisero': ['Kisa North', 'Kisa East', 'Kisa West', 'Kisa Central'],
@@ -448,8 +449,9 @@ const Map<String, List<String>> constituencyWards = {
   'Kanduyi': ['Bukembe West', 'Bukembe East', 'Township', 'Khalaba', 'Musikoma', 'East Sang’alo', 'Marakaru/Tuuti', 'Sang’alo West'],
   'Webuye East': ['Mihuu', 'Ndivisi', 'Maraka'],
   'Webuye West': ['Sitikho', 'Matulo', 'Bokoli', 'Misikhu'],
-  'Kimilili': ['Kibingei', 'Maeni', 'Kimilili', 'Kamukuywa'],
+  'Kimilili': ['Kibingei', 'Maeni', 'Kimilili', 'Kamukuywa', 'Maeni East'], 
   'Tongaren': ['Mbakalo', 'Naitiri/Kabuyefwe', 'Milima', 'Ndalu/Tabani', 'Tongaren', 'Soysambu/Mitua'],
+
 // Busia County
   'Teso North': ['Malaba Central', 'Malaba North', 'Ang’urai South', 'Ang’urai North', 'Ang’urai East', 'Malaba South'],
   'Teso South': ['Amukura West', 'Amukura East', 'Amukura Central', 'Angorom', 'Chakol South', 'Chakol North'],
@@ -457,7 +459,7 @@ const Map<String, List<String>> constituencyWards = {
   'Matayos': ['Bukhayo West', 'Matayos South', 'Busibwabo', 'Burumba', 'Mayenje'],
   'Butula': ['Marachi West', 'Marachi East', 'Marachi Central', 'Marachi North', 'Elugulu'],
   'Funyula': ['Namboboto/Nambuku', 'Nangina', 'Ageng’a/Nanguba', 'Bwiri'],
-  'Budalangi': ['Bunyanza Central', 'Bunyanza North', 'Bunyanza South', 'Bunyanza West'],
+  'Budalangi': ['Bunyanza Central', 'Bunyanza North', 'Bunyanza South', 'Bunyanza West', 'Mundere'], 
 
 // Siaya County
   'Ugenya': ['West Ugenya', 'East Ugenya', 'Ukwala', 'North Ugenya'],
