@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:coffeecore/home.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'activities_screen.dart';
+import 'history_screen.dart';
+import 'package:coffeecore/home.dart'; // Replace with your actual home.dart path
 
 class CoffeeManagementScreen extends StatefulWidget {
   const CoffeeManagementScreen({super.key});
@@ -19,7 +23,6 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
   bool _isFirstLaunch = true;
   String? _retrievedCycle;
 
-  // Form controllers
   final _labourActivityController = TextEditingController();
   final _labourCostController = TextEditingController();
   DateTime _labourActivityDate = DateTime.now();
@@ -44,7 +47,6 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
   final _paymentAmountController = TextEditingController();
   DateTime _paymentDate = DateTime.now();
 
-  // Lists to store current cycle data
   List<Map<String, dynamic>> _labourActivities = [];
   List<Map<String, dynamic>> _mechanicalCosts = [];
   List<Map<String, dynamic>> _inputCosts = [];
@@ -52,19 +54,11 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
   List<Map<String, dynamic>> _revenues = [];
   List<Map<String, dynamic>> _paymentHistory = [];
 
-  // Current farming cycle
   String _currentCycle = 'Current Cycle';
   List<String> _pastCycles = [];
-  static const List<String> _predefinedCycleNames = [
-    'Maize Season',
-    'Wheat Season',
-    'Bean Season',
-    'Tea Season',
-    'Coffee Season',
-  ];
+  static const List<String> _predefinedCycleNames = ['Coffee Season'];
 
-  static const Color customGreen = Color(0xFF003900);
-  bool _hasShownPopup = false;
+  static const Color customBrown = Color(0xFF4E2D00);
 
   @override
   void initState() {
@@ -72,9 +66,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
     _tabController = TabController(length: 5, vsync: this);
     _loadData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_hasShownPopup) {
-        _showStoragePopup();
-      }
+      _checkAndShowStoragePopup();
     });
   }
 
@@ -144,7 +136,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
   void _calculateProfitLoss() {
     double totalCost = double.tryParse(_totalProductionCostController.text) ?? 0;
     double totalRevenue = _revenues.fold(
-        0, (sum, rev) => sum + (double.tryParse(rev['amount'] ?? '0') ?? 0));
+        0, (acc, rev) => acc + (double.tryParse(rev['amount'] ?? '0') ?? 0));
     double profitLoss = totalRevenue - totalCost;
     _profitLossController.text = profitLoss.toStringAsFixed(2);
   }
@@ -157,8 +149,8 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
 
     double paymentsMade = _paymentHistory.fold(
         0.0,
-        (sum, payment) =>
-            sum + (double.tryParse(payment['amount'] ?? '0') ?? 0));
+        (acc, payment) =>
+            acc + (double.tryParse(payment['amount'] ?? '0') ?? 0));
     double remainingBalance = totalRepayment - paymentsMade;
 
     _loanInterestController.text = interest.toStringAsFixed(2);
@@ -184,17 +176,19 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
 
   void _loadLoanData(String cycle) {
     String? savedLoanData = _prefs.getString('loanData_$cycle');
-    Map<String, dynamic> loanData = jsonDecode(savedLoanData!);
-    _loanAmountController.text = (loanData['loanAmount'] ?? 0).toString();
-    _interestRateController.text = (loanData['interestRate'] ?? 0).toString();
-    _loanInterestController.text =
-        (loanData['interest'] ?? 0).toStringAsFixed(2);
-    _totalRepaymentController.text =
-        (loanData['totalRepayment'] ?? 0).toStringAsFixed(2);
-    _remainingBalanceController.text =
-        (loanData['remainingBalance'] ?? (loanData['totalRepayment'] ?? 0))
-            .toStringAsFixed(2);
+    if (savedLoanData != null) {
+      Map<String, dynamic> loanData = jsonDecode(savedLoanData);
+      _loanAmountController.text = (loanData['loanAmount'] ?? 0).toString();
+      _interestRateController.text = (loanData['interestRate'] ?? 0).toString();
+      _loanInterestController.text =
+          (loanData['interest'] ?? 0).toStringAsFixed(2);
+      _totalRepaymentController.text =
+          (loanData['totalRepayment'] ?? 0).toStringAsFixed(2);
+      _remainingBalanceController.text =
+          (loanData['remainingBalance'] ?? (loanData['totalRepayment'] ?? 0))
+              .toStringAsFixed(2);
     }
+  }
 
   void _recordPayment() {
     double paymentAmount = double.tryParse(_paymentAmountController.text) ?? 0;
@@ -212,7 +206,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
       };
       setState(() {
         _paymentHistory.insert(0, newPayment);
-        _saveDataOnChange(); // Auto-save on payment
+        _saveDataOnChange();
         _paymentAmountController.clear();
         _paymentDate = DateTime.now();
       });
@@ -223,12 +217,16 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
   }
 
   void _saveDataOnChange() {
-    _prefs.setString('labourActivities_$_currentCycle', jsonEncode(_labourActivities));
-    _prefs.setString('mechanicalCosts_$_currentCycle', jsonEncode(_mechanicalCosts));
+    _prefs.setString(
+        'labourActivities_$_currentCycle', jsonEncode(_labourActivities));
+    _prefs.setString(
+        'mechanicalCosts_$_currentCycle', jsonEncode(_mechanicalCosts));
     _prefs.setString('inputCosts_$_currentCycle', jsonEncode(_inputCosts));
-    _prefs.setString('miscellaneousCosts_$_currentCycle', jsonEncode(_miscellaneousCosts));
+    _prefs.setString(
+        'miscellaneousCosts_$_currentCycle', jsonEncode(_miscellaneousCosts));
     _prefs.setString('revenues_$_currentCycle', jsonEncode(_revenues));
-    _prefs.setString('paymentHistory_$_currentCycle', jsonEncode(_paymentHistory));
+    _prefs.setString(
+        'paymentHistory_$_currentCycle', jsonEncode(_paymentHistory));
     _saveLoanData(
         _currentCycle,
         double.tryParse(_loanAmountController.text) ?? 0,
@@ -294,7 +292,6 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                 const DropdownMenuItem(value: '', child: Text('Custom')),
                 ..._predefinedCycleNames
                     .map((name) => DropdownMenuItem(value: name, child: Text(name)))
-                    
               ],
               onChanged: (value) => selectedCycleName = value,
             ),
@@ -338,7 +335,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
 
   void _saveCurrentCycle(String newCycleName) {
     setState(() {
-      _saveDataOnChange(); // Save current cycle data before switching
+      _saveDataOnChange();
       _pastCycles.add(newCycleName);
       _prefs.setStringList('pastCycles', _pastCycles);
 
@@ -360,7 +357,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
 
       _resetForm();
       _calculateTotalProductionCost();
-      _retrievedCycle = null; // Reset retrieved cycle
+      _retrievedCycle = null;
     });
   }
 
@@ -469,73 +466,77 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
     );
   }
 
-  Future<void> _showStoragePopup() async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: Row(
-            children: [
-              Icon(Icons.lock, color: customGreen, size: 24),
-              const SizedBox(width: 8),
-              const Text(
-                'Your Data Stays Safe',
-                style: TextStyle(color: customGreen, fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-            ],
-          ),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Good news! Your financial info is stored only on this device.',
-                style: TextStyle(fontSize: 16, height: 1.4),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Keep your device secure to protect it!',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() => _hasShownPopup = true);
-              },
-              child: const Text('Got It',
-                  style: TextStyle(color: customGreen, fontWeight: FontWeight.bold)),
+  Future<void> _checkAndShowStoragePopup() async {
+    bool hasShownPopup = _prefs.getBool('hasShownPopup') ?? false;
+    if (!hasShownPopup) {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            title: Row(
+              children: [
+                Icon(Icons.lock, color: customBrown, size: 24),
+                const SizedBox(width: 8),
+                Text(
+                  'Your Data Stays Safe',
+                  style: TextStyle(
+                      color: customBrown, fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('More Info'),
-                    content: const Text(
-                      'Your costs, revenues, and loans are saved locally using SharedPreferences. '
-                      'No data is sent to servers unless you choose to share it. '
-                      'For security, avoid lending your device or use a passcode.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('OK', style: TextStyle(color: customGreen)),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Good news! Your financial info is stored only on this device.',
+                  style: TextStyle(fontSize: 16, height: 1.4),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Keep your device secure to protect it!',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _prefs.setBool('hasShownPopup', true);
+                },
+                child: Text('Got It',
+                    style: TextStyle(color: customBrown, fontWeight: FontWeight.bold)),
+              ),
+              TextButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('More Info'),
+                      content: const Text(
+                        'Your costs, revenues, and loans are saved locally using SharedPreferences. '
+                        'You can also sync to Firestore for backup. '
+                        'For security, avoid lending your device or use a passcode.',
                       ),
-                    ],
-                  ),
-                );
-              },
-              child: const Text('Learn More', style: TextStyle(color: Colors.grey)),
-            ),
-          ],
-        );
-      },
-    );
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('OK', style: TextStyle(color: customBrown)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: const Text('Learn More', style: TextStyle(color: Colors.grey)),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   List<String> _getEquipmentSuggestions() {
@@ -566,7 +567,6 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                 const DropdownMenuItem(value: '', child: Text('Custom')),
                 ..._predefinedCycleNames
                     .map((name) => DropdownMenuItem(value: name, child: Text(name)))
-                    
               ],
               onChanged: (value) => selectedCycleName = value,
             ),
@@ -605,6 +605,93 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
     );
   }
 
+  Future<void> syncToFirestore() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to sync data')));
+      return;
+    }
+
+    String uid = user.uid;
+    CollectionReference cycles =
+        FirebaseFirestore.instance.collection('Users/$uid/Farm Cycles');
+
+    await FirebaseFirestore.instance.collection('Users').doc(uid).set({
+      'currentCycle': _currentCycle,
+      'pastCycles': _pastCycles,
+    });
+
+    List<String> allCycles = [_currentCycle, ..._pastCycles];
+    for (String cycle in allCycles) {
+      Map<String, dynamic> cycleData = {
+        'labourActivities': _prefs.getString('labourActivities_$cycle') ?? '[]',
+        'mechanicalCosts': _prefs.getString('mechanicalCosts_$cycle') ?? '[]',
+        'inputCosts': _prefs.getString('inputCosts_$cycle') ?? '[]',
+        'miscellaneousCosts':
+            _prefs.getString('miscellaneousCosts_$cycle') ?? '[]',
+        'revenues': _prefs.getString('revenues_$cycle') ?? '[]',
+        'paymentHistory': _prefs.getString('paymentHistory_$cycle') ?? '[]',
+        'loanData': _prefs.getString('loanData_$cycle') ?? '{}',
+      };
+      await cycles.doc(cycle).set(cycleData);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Data synced to Firestore successfully')));
+    }
+  }
+
+  Future<void> loadFromFirestore() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to load data')));
+      return;
+    }
+
+    String uid = user.uid;
+    DocumentSnapshot userDoc =
+        await FirebaseFirestore.instance.collection('Users').doc(uid).get();
+    if (!userDoc.exists) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No data found in Firestore')));
+      }
+      return;
+    }
+
+    setState(() {
+      _currentCycle = userDoc['currentCycle'];
+      _pastCycles = List<String>.from(userDoc['pastCycles']);
+      _prefs.setString('currentCycle', _currentCycle);
+      _prefs.setStringList('pastCycles', _pastCycles);
+    });
+
+    CollectionReference cycles =
+        FirebaseFirestore.instance.collection('Users/$uid/Farm Cycles');
+    for (String cycle in [_currentCycle, ..._pastCycles]) {
+      DocumentSnapshot cycleDoc = await cycles.doc(cycle).get();
+      if (cycleDoc.exists) {
+        Map<String, dynamic> data = cycleDoc.data() as Map<String, dynamic>;
+        _prefs.setString('labourActivities_$cycle', data['labourActivities']);
+        _prefs.setString('mechanicalCosts_$cycle', data['mechanicalCosts']);
+        _prefs.setString('inputCosts_$cycle', data['inputCosts']);
+        _prefs.setString('miscellaneousCosts_$cycle', data['miscellaneousCosts']);
+        _prefs.setString('revenues_$cycle', data['revenues']);
+        _prefs.setString('paymentHistory_$cycle', data['paymentHistory']);
+        _prefs.setString('loanData_$cycle', data['loanData']);
+      }
+    }
+
+    _loadCycleData(_currentCycle);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Data loaded from Firestore successfully')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -614,16 +701,15 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
           onPressed: () {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => HomePage()),
+              MaterialPageRoute(builder: (context) => const HomePage()),
             );
           },
         ),
         title: const Text(
-          'Farm Management',
-          style: TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold),
+          'Coffee Farm Management',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: customGreen,
+        backgroundColor: customBrown,
         actions: [
           IconButton(
             icon: const Icon(Icons.history_edu, color: Colors.white),
@@ -659,6 +745,16 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
             tooltip: 'Retrieve Past Cycle',
             onPressed: _retrievePastCycle,
           ),
+          IconButton(
+            icon: const Icon(Icons.cloud_upload, color: Colors.white),
+            tooltip: 'Sync to Cloud',
+            onPressed: syncToFirestore,
+          ),
+          IconButton(
+            icon: const Icon(Icons.cloud_download, color: Colors.white),
+            tooltip: 'Load from Cloud',
+            onPressed: loadFromFirestore,
+          ),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -691,11 +787,11 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                             style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: customGreen),
+                                color: customBrown),
                           ),
                           if (_isFirstLaunch)
                             IconButton(
-                              icon: const Icon(Icons.edit, color: customGreen),
+                              icon: const Icon(Icons.edit, color: customBrown),
                               onPressed: () {
                                 _editCycleName();
                               },
@@ -710,8 +806,8 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               PieChartSectionData(
                                 value: _labourActivities.fold(
                                     0.0,
-                                    (sum, item) =>
-                                        sum! +
+                                    (acc, item) =>
+                                        acc! +
                                         (double.tryParse(item['cost'] ?? '0') ?? 0)),
                                 color: Colors.red,
                                 title: 'Labour',
@@ -719,8 +815,8 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               PieChartSectionData(
                                 value: _mechanicalCosts.fold(
                                     0.0,
-                                    (sum, item) =>
-                                        sum! +
+                                    (acc, item) =>
+                                        acc! +
                                         (double.tryParse(item['cost'] ?? '0') ?? 0)),
                                 color: Colors.blue,
                                 title: 'Equipment',
@@ -728,8 +824,8 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               PieChartSectionData(
                                 value: _inputCosts.fold(
                                     0.0,
-                                    (sum, item) =>
-                                        sum! +
+                                    (acc, item) =>
+                                        acc! +
                                         (double.tryParse(item['cost'] ?? '0') ?? 0)),
                                 color: Colors.orange,
                                 title: 'Inputs',
@@ -737,8 +833,8 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               PieChartSectionData(
                                 value: _miscellaneousCosts.fold(
                                     0.0,
-                                    (sum, item) =>
-                                        sum! +
+                                    (acc, item) =>
+                                        acc! +
                                         (double.tryParse(item['cost'] ?? '0') ?? 0)),
                                 color: Colors.grey,
                                 title: 'Misc',
@@ -746,8 +842,8 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               PieChartSectionData(
                                 value: _revenues.fold(
                                     0.0,
-                                    (sum, item) =>
-                                        sum! +
+                                    (acc, item) =>
+                                        acc! +
                                         (double.tryParse(item['amount'] ?? '0') ?? 0)),
                                 color: Colors.green,
                                 title: 'Revenue',
@@ -780,7 +876,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                           child: ListTile(
                               title: const Text('Total Revenue'),
                               subtitle: Text(
-                                  'KSH ${_revenues.fold(0.0, (sum, item) => sum + (double.tryParse(item['amount'] ?? '0') ?? 0)).toStringAsFixed(2)}'))),
+                                  'KSH ${_revenues.fold(0.0, (acc, item) => acc + (double.tryParse(item['amount'] ?? '0') ?? 0)).toStringAsFixed(2)}'))),
                       Card(
                           child: ListTile(
                               title: const Text('Profit/Loss'),
@@ -798,15 +894,15 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
                             children: [
-                              const Text('Labour Costs',
+                              const Text('Coffee Farm Activity Costs',
                                   style:
                                       TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                               TextFormField(
                                 controller: _labourActivityController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Labour Activity',
+                                  labelText: 'Coffee Farm Activity',
                                   prefixIcon: Icon(Icons.work),
-                                  hintText: 'e.g., Planting, Pruning',
+                                  hintText: 'e.g., Pruning coffee trees, Harvesting coffee cherries',
                                 ),
                                 maxLength: 30,
                               ),
@@ -835,7 +931,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               ),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: customGreen,
+                                    backgroundColor: customBrown,
                                     foregroundColor: Colors.white),
                                 onPressed: () {
                                   if (_labourActivityController.text.isNotEmpty &&
@@ -849,7 +945,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                                     };
                                     setState(() {
                                       _labourActivities.insert(0, newActivity);
-                                      _saveDataOnChange(); // Auto-save
+                                      _saveDataOnChange();
                                       _calculateTotalProductionCost();
                                       _labourActivityController.clear();
                                       _labourCostController.clear();
@@ -862,7 +958,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                                                 'Please enter both activity and cost')));
                                   }
                                 },
-                                child: const Text('Add Labour Cost'),
+                                child: const Text('Add Activity Cost'),
                               ),
                             ],
                           ),
@@ -872,7 +968,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                       if (_labourActivities.isNotEmpty)
                         ListTile(
                           title: Text(
-                              'Latest Labour: ${_labourActivities.first['activity']} - KSH ${_labourActivities.first['cost']}'),
+                              'Latest Activity: ${_labourActivities.first['activity']} - KSH ${_labourActivities.first['cost']}'),
                           subtitle: Text('Date: ${_labourActivities.first['date']}'),
                         ),
                       Card(
@@ -881,7 +977,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
                             children: [
-                              const Text('Mechanical Costs',
+                              const Text('Coffee Farm Equipment Costs',
                                   style:
                                       TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                               Autocomplete<String>(
@@ -904,9 +1000,9 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                                     controller: controller,
                                     focusNode: focusNode,
                                     decoration: const InputDecoration(
-                                      labelText: 'Equipment Used',
+                                      labelText: 'Coffee Farm Equipment',
                                       prefixIcon: Icon(Icons.agriculture),
-                                      hintText: 'e.g., Tractor, Harvester',
+                                      hintText: 'e.g., Coffee harvester, Coffee roaster',
                                     ),
                                     maxLength: 30,
                                     onFieldSubmitted: (_) => onFieldSubmitted(),
@@ -938,7 +1034,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               ),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: customGreen,
+                                    backgroundColor: customBrown,
                                     foregroundColor: Colors.white),
                                 onPressed: () {
                                   if (_equipmentUsedController.text.isNotEmpty &&
@@ -952,7 +1048,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                                     };
                                     setState(() {
                                       _mechanicalCosts.insert(0, newCost);
-                                      _saveDataOnChange(); // Auto-save
+                                      _saveDataOnChange();
                                       _calculateTotalProductionCost();
                                       _equipmentUsedController.clear();
                                       _equipmentCostController.clear();
@@ -984,7 +1080,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
                             children: [
-                              const Text('Input Costs',
+                              const Text('Coffee Farm Input Costs',
                                   style:
                                       TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                               Autocomplete<String>(
@@ -1007,9 +1103,9 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                                     controller: controller,
                                     focusNode: focusNode,
                                     decoration: const InputDecoration(
-                                      labelText: 'Input Used',
+                                      labelText: 'Coffee Farm Input',
                                       prefixIcon: Icon(Icons.local_florist),
-                                      hintText: 'e.g., Fertilizer, Seeds',
+                                      hintText: 'e.g., Coffee fertilizers, Coffee seeds',
                                     ),
                                     maxLength: 30,
                                     onFieldSubmitted: (_) => onFieldSubmitted(),
@@ -1041,7 +1137,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               ),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: customGreen,
+                                    backgroundColor: customBrown,
                                     foregroundColor: Colors.white),
                                 onPressed: () {
                                   if (_inputUsedController.text.isNotEmpty &&
@@ -1054,7 +1150,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                                     };
                                     setState(() {
                                       _inputCosts.insert(0, newCost);
-                                      _saveDataOnChange(); // Auto-save
+                                      _saveDataOnChange();
                                       _calculateTotalProductionCost();
                                       _inputUsedController.clear();
                                       _inputCostController.clear();
@@ -1123,7 +1219,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               ),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: customGreen,
+                                    backgroundColor: customBrown,
                                     foregroundColor: Colors.white),
                                 onPressed: () {
                                   if (_miscellaneousDescController.text.isNotEmpty &&
@@ -1138,7 +1234,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                                     };
                                     setState(() {
                                       _miscellaneousCosts.insert(0, newCost);
-                                      _saveDataOnChange(); // Auto-save
+                                      _saveDataOnChange();
                                       _calculateTotalProductionCost();
                                       _miscellaneousDescController.clear();
                                       _miscellaneousCostController.clear();
@@ -1183,7 +1279,9 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               TextFormField(
                                 controller: _cropGrownController,
                                 decoration: const InputDecoration(
-                                    labelText: 'Crop Grown', prefixIcon: Icon(Icons.grass)),
+                                    labelText: 'Coffee Variety',
+                                    prefixIcon: Icon(Icons.coffee),
+                                    hintText: 'e.g., Arabica, Robusta'),
                               ),
                               TextFormField(
                                 controller: _revenueController,
@@ -1194,7 +1292,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               ),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: customGreen,
+                                    backgroundColor: customBrown,
                                     foregroundColor: Colors.white),
                                 onPressed: () {
                                   if (_cropGrownController.text.isNotEmpty &&
@@ -1205,7 +1303,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                                     };
                                     setState(() {
                                       _revenues.insert(0, newRevenue);
-                                      _saveDataOnChange(); // Auto-save
+                                      _saveDataOnChange();
                                       _calculateTotalProductionCost();
                                       _cropGrownController.clear();
                                       _revenueController.clear();
@@ -1347,7 +1445,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                               ),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: customGreen,
+                                    backgroundColor: customBrown,
                                     foregroundColor: Colors.white),
                                 onPressed: _recordPayment,
                                 child: const Text('Record Payment'),
@@ -1423,7 +1521,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
             ),
           ),
         ).then((_) => setState(() {})),
-        backgroundColor: customGreen,
+        backgroundColor: customBrown,
         tooltip: 'View All Activities',
         child: const Icon(Icons.list, color: Colors.white),
       ),
@@ -1452,432 +1550,5 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
     _remainingBalanceController.dispose();
     _paymentAmountController.dispose();
     super.dispose();
-  }
-}
-
-// --- ActivitiesScreen ---
-class ActivitiesScreen extends StatelessWidget {
-  final List<Map<String, dynamic>> labourActivities;
-  final List<Map<String, dynamic>> mechanicalCosts;
-  final List<Map<String, dynamic>> inputCosts;
-  final List<Map<String, dynamic>> miscellaneousCosts;
-  final List<Map<String, dynamic>> revenues;
-  final List<Map<String, dynamic>> paymentHistory;
-  final String totalCosts;
-  final String profitLoss;
-  final Function(String, int) onDelete;
-
-  const ActivitiesScreen({
-    super.key,
-    required this.labourActivities,
-    required this.mechanicalCosts,
-    required this.inputCosts,
-    required this.miscellaneousCosts,
-    required this.revenues,
-    required this.paymentHistory,
-    required this.totalCosts,
-    required this.profitLoss,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('All Farm Activities')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-                child: ListTile(
-                    title: const Text('Total Costs'), subtitle: Text('KSH $totalCosts'))),
-            Card(
-                child: ListTile(
-                    title: const Text('Profit/Loss'), subtitle: Text('KSH $profitLoss'))),
-            const SizedBox(height: 20),
-            const Text('Labour Activities',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: labourActivities.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${labourActivities[index]['activity']} - KSH ${labourActivities[index]['cost']}'),
-                subtitle: Text('Date: ${labourActivities[index]['date']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('labour', index),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text('Mechanical Costs',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: mechanicalCosts.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${mechanicalCosts[index]['equipment']} - KSH ${mechanicalCosts[index]['cost']}'),
-                subtitle: Text('Date: ${mechanicalCosts[index]['date']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('mechanical', index),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text('Input Costs',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: inputCosts.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${inputCosts[index]['input']} - KSH ${inputCosts[index]['cost']}'),
-                subtitle: Text('Date: ${inputCosts[index]['date']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('input', index),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text('Miscellaneous Costs',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: miscellaneousCosts.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${miscellaneousCosts[index]['description']} - KSH ${miscellaneousCosts[index]['cost']}'),
-                subtitle: Text('Date: ${miscellaneousCosts[index]['date']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('miscellaneous', index),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text('Revenues',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: revenues.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${revenues[index]['crop']} - KSH ${revenues[index]['amount']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('revenue', index),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text('Loan Payments',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: paymentHistory.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${paymentHistory[index]['date']} - KSH ${paymentHistory[index]['amount']}'),
-                subtitle: Text(
-                    'Remaining: KSH ${paymentHistory[index]['remainingBalance']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('payment', index),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// --- HistoryScreen ---
-class HistoryScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> labourActivities;
-  final List<Map<String, dynamic>> mechanicalCosts;
-  final List<Map<String, dynamic>> inputCosts;
-  final List<Map<String, dynamic>> miscellaneousCosts;
-  final List<Map<String, dynamic>> revenues;
-  final List<Map<String, dynamic>> paymentHistory;
-  final String cycleName;
-  final List<String> pastCycles;
-
-  const HistoryScreen({
-    super.key,
-    required this.labourActivities,
-    required this.mechanicalCosts,
-    required this.inputCosts,
-    required this.miscellaneousCosts,
-    required this.revenues,
-    required this.paymentHistory,
-    required this.cycleName,
-    required this.pastCycles,
-  });
-
-  @override
-  State<HistoryScreen> createState() => _HistoryScreenState();
-}
-
-class _HistoryScreenState extends State<HistoryScreen> {
-  DateTime? startDate;
-  DateTime? endDate;
-  String selectedCycle;
-  late SharedPreferences _prefs;
-
-  _HistoryScreenState() : selectedCycle = '';
-
-  @override
-  void initState() {
-    super.initState();
-    selectedCycle = widget.cycleName;
-    _loadPrefs();
-  }
-
-  Future<void> _loadPrefs() async {
-    _prefs = await SharedPreferences.getInstance();
-    _loadCycleData(selectedCycle);
-  }
-
-  void _loadCycleData(String cycle) {
-    setState(() {
-      widget.labourActivities.clear();
-      widget.labourActivities.addAll(
-        (_prefs.getString('labourActivities_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('labourActivities_$cycle')!))
-            : [],
-      );
-      widget.mechanicalCosts.clear();
-      widget.mechanicalCosts.addAll(
-        (_prefs.getString('mechanicalCosts_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('mechanicalCosts_$cycle')!))
-            : [],
-      );
-      widget.inputCosts.clear();
-      widget.inputCosts.addAll(
-        (_prefs.getString('inputCosts_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('inputCosts_$cycle')!))
-            : [],
-      );
-      widget.miscellaneousCosts.clear();
-      widget.miscellaneousCosts.addAll(
-        (_prefs.getString('miscellaneousCosts_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('miscellaneousCosts_$cycle')!))
-            : [],
-      );
-      widget.revenues.clear();
-      widget.revenues.addAll(
-        (_prefs.getString('revenues_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('revenues_$cycle')!))
-            : [],
-      );
-      widget.paymentHistory.clear();
-      widget.paymentHistory.addAll(
-        (_prefs.getString('paymentHistory_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('paymentHistory_$cycle')!))
-            : [],
-      );
-    });
-  }
-
-  List<Map<String, dynamic>> filterByDate(List<Map<String, dynamic>> data) {
-    if (startDate == null || endDate == null) return data;
-    return data.where((item) {
-      if (!item.containsKey('date')) return true; // For revenues without date
-      DateTime itemDate = DateTime.parse(item['date']);
-      return itemDate.isAfter(startDate!.subtract(const Duration(days: 1))) &&
-          itemDate.isBefore(endDate!.add(const Duration(days: 1)));
-    }).toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    var filteredLabour = filterByDate(widget.labourActivities);
-    var filteredMechanical = filterByDate(widget.mechanicalCosts);
-    var filteredInputs = filterByDate(widget.inputCosts);
-    var filteredMisc = filterByDate(widget.miscellaneousCosts);
-    var filteredRevenues = filterByDate(widget.revenues);
-    var filteredPayments = filterByDate(widget.paymentHistory);
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('History')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                DropdownButton<String>(
-                  value: selectedCycle,
-                  items: [widget.cycleName, ...widget.pastCycles]
-                      .map((cycle) =>
-                          DropdownMenuItem(value: cycle, child: Text(cycle)))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        selectedCycle = value;
-                        _loadCycleData(value);
-                        startDate = null;
-                        endDate = null;
-                      });
-                    }
-                  },
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    DateTime? picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) setState(() => startDate = picked);
-                  },
-                  child: Text(startDate == null
-                      ? 'Start Date'
-                      : startDate.toString().substring(0, 10)),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    DateTime? picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) setState(() => endDate = picked);
-                  },
-                  child: Text(endDate == null
-                      ? 'End Date'
-                      : endDate.toString().substring(0, 10)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (filteredLabour.isNotEmpty) ...[
-              const Text('Labour Activities',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredLabour.length,
-                itemBuilder: (context, index) {
-                  final item = filteredLabour[index];
-                  return ListTile(
-                    title: Text('${item['activity']} - KSH ${item['cost']}'),
-                    subtitle: Text('Date: ${item['date']}'),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
-            if (filteredMechanical.isNotEmpty) ...[
-              const Text('Mechanical Costs',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredMechanical.length,
-                itemBuilder: (context, index) {
-                  final item = filteredMechanical[index];
-                  return ListTile(
-                    title: Text('${item['equipment']} - KSH ${item['cost']}'),
-                    subtitle: Text('Date: ${item['date']}'),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
-            if (filteredInputs.isNotEmpty) ...[
-              const Text('Input Costs',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredInputs.length,
-                itemBuilder: (context, index) {
-                  final item = filteredInputs[index];
-                  return ListTile(
-                    title: Text('${item['input']} - KSH ${item['cost']}'),
-                    subtitle: Text('Date: ${item['date']}'),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
-            if (filteredMisc.isNotEmpty) ...[
-              const Text('Miscellaneous Costs',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredMisc.length,
-                itemBuilder: (context, index) {
-                  final item = filteredMisc[index];
-                  return ListTile(
-                    title: Text('${item['description']} - KSH ${item['cost']}'),
-                    subtitle: Text('Date: ${item['date']}'),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
-            if (filteredRevenues.isNotEmpty) ...[
-              const Text('Revenues',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredRevenues.length,
-                itemBuilder: (context, index) {
-                  final item = filteredRevenues[index];
-                  return ListTile(
-                    title: Text('${item['crop']} - KSH ${item['amount']}'),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
-            if (filteredPayments.isNotEmpty) ...[
-              const Text('Loan Payments',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredPayments.length,
-                itemBuilder: (context, index) {
-                  final item = filteredPayments[index];
-                  return ListTile(
-                    title: Text('${item['date']} - KSH ${item['amount']}'),
-                    subtitle:
-                        Text('Remaining: KSH ${item['remainingBalance']}'),
-                  );
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
   }
 }

@@ -1,11 +1,11 @@
 name: coffeecore
 description: "A Flutter app for coffee farmers to manage market prices and farming data."
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.6.1 <4.0.0' # Updated for clarity and future-proofing
+  sdk: ">=3.6.1 <4.0.0" # Updated for clarity and future-proofing
 
 dependencies:
   flutter:
@@ -40,11 +40,13 @@ dependencies:
   provider: ^6.1.3
   vector_math: ^2.1.4
   flutter_local_notifications: ^19.0.0
+  timezone: ^0.10.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
@@ -57,3 +59,8 @@ flutter:
     - assets/coffee_manuals.jpg
     - assets/coffee_farming_tips.jpg
     - assets/coffee_soil.jpg
+
+flutter_launcher_icons:
+  android: true
+  ios: false 
+  image_path: "assets/icons/icon.png"

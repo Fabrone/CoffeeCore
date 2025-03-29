@@ -1,14 +1,15 @@
+import 'package:coffeecore/screens/Farm%20Management/coffee_management_screen.dart';
+import 'package:coffeecore/screens/admin/admin_management_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:coffeecore/models/user_model.dart';
-import 'package:coffeecore/screens/coffee_management_screen.dart';
 import 'package:coffeecore/screens/learn_coffee_farming.dart';
 import 'package:coffeecore/screens/manuals_screen.dart';
 import 'package:coffeecore/screens/pests_diseases_home.dart';
 import 'package:coffeecore/screens/user_profile.dart';
 import 'package:coffeecore/screens/weather_screen.dart';
 import 'package:coffeecore/screens/market_prices.dart';
-import 'package:coffeecore/screens/market_officer_screen.dart'; // Import MarketOfficerScreen
+import 'package:coffeecore/screens/market_officer_screen.dart'; 
 import 'package:coffeecore/authentication/login.dart';
 import 'package:coffeecore/settings/notifications_settings_screen.dart';
 import 'package:coffeecore/settings/settings_screen.dart';
@@ -161,7 +162,7 @@ class _HomePageState extends State<HomePage> {
       });
 
       FirebaseFirestore.instance
-          .collection('Market Officers')
+          .collection('MarketOfficers')
           .doc(user.uid)
           .snapshots()
           .listen((marketOfficerSnapshot) {
@@ -242,7 +243,7 @@ class _HomePageState extends State<HomePage> {
                   Builder(
                     builder: (context) => _buildMenuButton(context),
                   ),
-                  if (_isMarketOfficer) // Add "Set Prices" button for Market Officers
+                  if (_isMarketOfficer) 
                     Padding(
                       padding: const EdgeInsets.only(left: 16.0),
                       child: _buildMarketOfficerButton(),
@@ -263,7 +264,7 @@ class _HomePageState extends State<HomePage> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const CoffeeManagementScreen()),
+            MaterialPageRoute(builder: (context) => const AdminManagementScreen()),
           );
         },
         icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
@@ -482,7 +483,7 @@ class _HomePageState extends State<HomePage> {
             if (_userId != null) {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const CoffeeManagementScreen()),
+                MaterialPageRoute(builder: (context) => const HomePage()),
               );
             } else {
               logger.w('User ID is null, attempting refresh');
@@ -495,7 +496,7 @@ class _HomePageState extends State<HomePage> {
           _buildDrawerItem(Icons.pest_control, 'Pests & Diseases', () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()));
           }),
-          _buildDrawerItem(Icons.local_cafe, 'Farm Management', () {
+          _buildDrawerItem(Icons.supervisor_account, 'Farm Management', () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const CoffeeManagementScreen()));
           }),
           _buildDrawerItem(Icons.book, 'Coffee Manuals', () {
