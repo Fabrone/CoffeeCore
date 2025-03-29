@@ -1,65 +1,65 @@
+import 'package:coffeecore/screens/Disease%20Management/coffee_disease_management.dart';
+import 'package:coffeecore/screens/Pest%20Management/coffee_pest_management_page.dart';
+import 'package:coffeecore/screens/Symptom%20Analysis/coffee_symptom_checker_page.dart';
 import 'package:flutter/material.dart';
-//import 'package:coffeecore/screens/pest_management/pest_management.dart'; // Updated import
-//import 'package:coffeecore/screens/disease_management_page.dart'; // Updated import
-//import 'package:coffeecore/screens/symptom_checker_page.dart'; // Updated import
 
 class PestDiseaseHomePage extends StatelessWidget {
   const PestDiseaseHomePage({super.key});
 
-  static final Color coffeeBrown = Colors.brown[700]!; // CoffeeCore theme color
+  static final Color coffeeBrown = Colors.brown[700]!; 
 
   @override
   Widget build(BuildContext context) {
-    ScaffoldMessenger.of(context); // Kept as is (though unused, likely a placeholder)
+    ScaffoldMessenger.of(context); 
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Coffee Pest & Disease Management', // Updated title
+          'Coffee Pest & Disease Management',
           style: TextStyle(color: Colors.white),
         ),
         backgroundColor: coffeeBrown,
         foregroundColor: Colors.white,
       ),
       body: Container(
-        color: Colors.brown[50], // Light coffee shade instead of grey
+        color: Colors.brown[50],
         padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
-              'Choose an option to manage your coffee farm:', // Updated text
+              'Choose the item to manage on your coffee farm:', 
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 40),
             _buildOptionCard(
               context,
-              'Manage Coffee Pests', // Updated title
+              'Manage Coffee Pests', 
               Icons.bug_report,
               () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()),
+                MaterialPageRoute(builder: (context) => const CoffeePestManagementPage()),
               ),
             ),
             const SizedBox(height: 20),
             _buildOptionCard(
               context,
-              'Manage Coffee Diseases', // Updated title
+              'Manage Coffee Diseases', 
               Icons.local_hospital,
               () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()),
+                MaterialPageRoute(builder: (context) => const CoffeeDiseaseManagementPage()),
               ),
             ),
             const SizedBox(height: 20),
             _buildOptionCard(
               context,
-              'Identify Issue by Symptoms', // Kept as is, still relevant
+              'Identify Issue by Symptoms',
               Icons.search,
               () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()),
+                MaterialPageRoute(builder: (context) => const CoffeeSymptomCheckerPage()),
               ),
             ),
           ],
