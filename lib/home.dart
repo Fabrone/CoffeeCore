@@ -1,4 +1,5 @@
 import 'package:coffeecore/screens/Farm%20Management/coffee_management_screen.dart';
+import 'package:coffeecore/screens/Field%20Data/coffee_soil_home_page.dart';
 import 'package:coffeecore/screens/admin/admin_management_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -483,7 +484,7 @@ class _HomePageState extends State<HomePage> {
             if (_userId != null) {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const HomePage()),
+                MaterialPageRoute(builder: (context) => const CoffeeSoilHomePage()),
               );
             } else {
               logger.w('User ID is null, attempting refresh');
