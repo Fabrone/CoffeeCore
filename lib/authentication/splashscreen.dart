@@ -13,14 +13,14 @@ class SplashScreen extends StatefulWidget {
 
 class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _fillAnimation; // For coffee "filling" effect
-  late Animation<double> _textFadeAnimation; // For text fade-in/out
+  late Animation<double> _fillAnimation; 
+  late Animation<double> _textFadeAnimation; 
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(seconds: 4), // Total animation duration
+      duration: const Duration(seconds: 4), 
       vsync: this,
     );
 
@@ -121,7 +121,7 @@ class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixi
                   Opacity(
                     opacity: _textFadeAnimation.value,
                     child: const Text(
-                      'Brewing Great Coffee',
+                      'Producing Great Coffee',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,

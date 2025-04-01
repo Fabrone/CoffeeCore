@@ -10,7 +10,7 @@ import 'package:coffeecore/screens/pests_diseases_home.dart';
 import 'package:coffeecore/screens/user_profile.dart';
 import 'package:coffeecore/screens/weather_screen.dart';
 import 'package:coffeecore/screens/market_prices.dart';
-import 'package:coffeecore/screens/market_officer_screen.dart'; 
+import 'package:coffeecore/screens/market_officer_screen.dart';
 import 'package:coffeecore/authentication/login.dart';
 import 'package:coffeecore/settings/notifications_settings_screen.dart';
 import 'package:coffeecore/settings/settings_screen.dart';
@@ -32,7 +32,7 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? _userData;
   Uint8List? _profileImageBytes;
   bool _isMainAdmin = false;
-  bool _isMarketOfficer = false; // New flag for Market Officer
+  bool _isMarketOfficer = false;
   final logger = Logger(printer: PrettyPrinter());
   String? _userId;
 
@@ -50,58 +50,13 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     logger.i('HomePage initState called');
-    _fetchUserData();
-    _listenToUserAndAdminStatus();
+    _updateUserRoleStatus();
     _listenToAuthState();
   }
 
-  Future<void> _fetchUserData() async {
+  Future<void> _updateUserRoleStatus() async {
     User? user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      logger.i('Fetching data for user: ${user.email}, UID: ${user.uid}');
-      _userId = user.uid;
-      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(user.uid)
-          .get();
-      if (userSnapshot.exists) {
-        AppUser appUser = AppUser.fromFirestore(userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
-
-        DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
-            .collection('Admins')
-            .doc(user.uid)
-            .get();
-        bool isAdmin = adminSnapshot.exists;
-
-        DocumentSnapshot marketOfficerSnapshot = await FirebaseFirestore.instance
-            .collection('Market Officers')
-            .doc(user.uid)
-            .get();
-        bool isMarketOfficer = marketOfficerSnapshot.exists;
-
-        String? profileImageBase64 = appUser.profileImage;
-        Uint8List? decodedImage;
-
-        try {
-          decodedImage = base64Decode(profileImageBase64!);
-        } catch (e) {
-          logger.e('Error decoding profile image: $e');
-        }
-
-        setState(() {
-          _userData = appUser.toMap();
-          _profileImageBytes = decodedImage;
-          _isMainAdmin = isAdmin;
-          _isMarketOfficer = isMarketOfficer; // Set Market Officer status
-          logger.i('Initial fetch - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsMarketOfficer: $_isMarketOfficer');
-        });
-      } else {
-        logger.w('No user data found in Firestore for UID: ${user.uid}');
-        setState(() {
-          _userId = user.uid;
-        });
-      }
-    } else {
+    if (user == null) {
       logger.w('No user logged in');
       if (mounted) {
         Navigator.pushReplacement(
@@ -109,7 +64,117 @@ class _HomePageState extends State<HomePage> {
           MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
       }
+      return;
     }
+
+    logger.i('Updating role status for UID: ${user.uid}');
+    _userId = user.uid;
+
+    // Initial fetch
+    DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+        .collection('Users')
+        .doc(user.uid)
+        .get();
+    if (userSnapshot.exists) {
+      AppUser appUser = AppUser.fromFirestore(userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
+      if (appUser.isDisabled) {
+        await FirebaseAuth.instance.signOut();
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Your account is disabled. Contact an admin.')),
+          );
+        }
+        return;
+      }
+
+      DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
+          .collection('Admins')
+          .doc(user.uid)
+          .get();
+      DocumentSnapshot marketOfficerSnapshot = await FirebaseFirestore.instance
+          .collection('MarketOfficers')
+          .doc(user.uid)
+          .get();
+
+      String? profileImageBase64 = appUser.profileImage;
+      Uint8List? decodedImage;
+      if (profileImageBase64 != null) {
+        try {
+          decodedImage = base64Decode(profileImageBase64);
+        } catch (e) {
+          logger.e('Error decoding profile image: $e');
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _userData = appUser.toMap();
+          _profileImageBytes = decodedImage;
+          _isMainAdmin = adminSnapshot.exists;
+          _isMarketOfficer = marketOfficerSnapshot.exists;
+          logger.i('Initial role status - Admin: $_isMainAdmin, Market Officer: $_isMarketOfficer');
+        });
+      }
+    } else {
+      logger.w('No user data found for UID: ${user.uid}');
+      setState(() => _userId = user.uid);
+    }
+
+    // Real-time listeners with error handling
+    FirebaseFirestore.instance
+        .collection('Users')
+        .doc(user.uid)
+        .snapshots()
+        .listen((userSnapshot) {
+      if (userSnapshot.exists && mounted) {
+        AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
+        if (appUser.isDisabled) {
+          FirebaseAuth.instance.signOut();
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Your account has been disabled. Contact an admin.')),
+          );
+        } else {
+          setState(() {
+            _userData = appUser.toMap();
+            logger.i('Real-time user update: $_userData');
+          });
+        }
+      }
+    }, onError: (error) => logger.e('User listener error: $error'));
+
+    FirebaseFirestore.instance
+        .collection('Admins')
+        .doc(user.uid)
+        .snapshots()
+        .listen((adminSnapshot) {
+      if (mounted) {
+        setState(() {
+          _isMainAdmin = adminSnapshot.exists;
+          logger.i('Real-time Admin update: $_isMainAdmin');
+        });
+      }
+    }, onError: (error) => logger.e('Admin listener error: $error'));
+
+    FirebaseFirestore.instance
+        .collection('MarketOfficers')
+        .doc(user.uid)
+        .snapshots()
+        .listen((marketOfficerSnapshot) {
+      if (mounted) {
+        setState(() {
+          _isMarketOfficer = marketOfficerSnapshot.exists;
+          logger.i('Real-time Market Officer update: $_isMarketOfficer');
+        });
+      }
+    }, onError: (error) => logger.e('Market Officer listener error: $error'));
   }
 
   void _listenToAuthState() {
@@ -119,7 +184,7 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _userId = user.uid;
         });
-        _fetchUserData();
+        _updateUserRoleStatus();
       } else {
         logger.w('Auth state changed - No user logged in');
         if (mounted) {
@@ -130,51 +195,6 @@ class _HomePageState extends State<HomePage> {
         }
       }
     });
-  }
-
-  void _listenToUserAndAdminStatus() {
-    User? user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      FirebaseFirestore.instance
-          .collection('Users')
-          .doc(user.uid)
-          .snapshots()
-          .listen((userSnapshot) {
-        if (userSnapshot.exists && mounted) {
-          AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
-          setState(() {
-            _userData = appUser.toMap();
-            logger.i('User data updated: $_userData');
-          });
-        }
-      });
-
-      FirebaseFirestore.instance
-          .collection('Admins')
-          .doc(user.uid)
-          .snapshots()
-          .listen((adminSnapshot) {
-        if (mounted) {
-          setState(() {
-            _isMainAdmin = adminSnapshot.exists;
-            logger.i('Admin status updated: $_isMainAdmin');
-          });
-        }
-      });
-
-      FirebaseFirestore.instance
-          .collection('MarketOfficers')
-          .doc(user.uid)
-          .snapshots()
-          .listen((marketOfficerSnapshot) {
-        if (mounted) {
-          setState(() {
-            _isMarketOfficer = marketOfficerSnapshot.exists;
-            logger.i('Market Officer status updated: $_isMarketOfficer');
-          });
-        }
-      });
-    }
   }
 
   Future<void> _handleLogout() async {
@@ -244,7 +264,7 @@ class _HomePageState extends State<HomePage> {
                   Builder(
                     builder: (context) => _buildMenuButton(context),
                   ),
-                  if (_isMarketOfficer) 
+                  if (_isMarketOfficer)
                     Padding(
                       padding: const EdgeInsets.only(left: 16.0),
                       child: _buildMarketOfficerButton(),
@@ -480,7 +500,7 @@ class _HomePageState extends State<HomePage> {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const WeatherScreen()));
           }),
           _buildDrawerItem(Icons.input, 'Field Data (Soil)', () {
-            logger.i('Navigating to CoffeeManagementScreen, userId: $_userId');
+            logger.i('Navigating to CoffeeSoilHomePage, userId: $_userId');
             if (_userId != null) {
               Navigator.push(
                 context,
@@ -488,7 +508,7 @@ class _HomePageState extends State<HomePage> {
               );
             } else {
               logger.w('User ID is null, attempting refresh');
-              _fetchUserData();
+              _updateUserRoleStatus(); // Updated to call the correct method
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('User ID not available. Retrying...')),
               );
