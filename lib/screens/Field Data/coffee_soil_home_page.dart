@@ -38,10 +38,10 @@ class CoffeeSoilHomePage extends StatelessWidget {
               context,
               MaterialPageRoute(builder: (context) => CoffeeSoilInputPage(structureType: 'single')),
             )),
-            _buildCard(context, 'Intercrop', 'Manage soil data for coffee with intercrops.', () => Navigator.push(
+            /*_buildCard(context, 'Intercrop', 'Manage soil data for coffee with intercrops.', () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => CoffeeSoilInputPage(structureType: 'intercrop')),
-            )),
+            )),*/
             _buildCard(context, 'Multiple Plots', 'Manage soil data for multiple coffee plots.', () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => CoffeeSoilInputPage(structureType: 'multiple')),
