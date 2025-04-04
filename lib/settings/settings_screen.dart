@@ -1,5 +1,5 @@
+import 'package:coffeecore/screens/user_profile.dart';
 import 'package:flutter/material.dart';
-import 'package:coffeecore/settings/edit_profile_screen.dart';
 import 'package:coffeecore/settings/account_settings_screen.dart';
 import 'package:coffeecore/settings/notifications_settings_screen.dart';
 import 'package:coffeecore/settings/privacy_policy_screen.dart';
@@ -8,11 +8,11 @@ import 'package:coffeecore/settings/faq_screen.dart';
 import 'package:coffeecore/settings/terms_and_conditions_screen.dart';
 import 'package:coffeecore/settings/about_coffee_core.dart';
 import 'package:coffeecore/home.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Added for logout functionality
+import 'package:firebase_auth/firebase_auth.dart'; 
 
 class SettingsScreen extends StatelessWidget {
-  final Color primaryColor = Colors.brown[700]!; // CoffeeCore theme color
-  final Color darkRed = const Color(0xFF8B0000); // Retained for logout button
+  final Color primaryColor = Colors.brown[700]!;
+  final Color darkRed = const Color(0xFF8B0000); 
 
   SettingsScreen({super.key});
 
@@ -31,7 +31,6 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-// Logout method adapted from HomePage with safe context usage
   Future<void> _handleLogout(BuildContext context) async {
     // Store Navigator and ScaffoldMessenger before the async operation
     final navigator = Navigator.of(context);
@@ -70,7 +69,7 @@ class SettingsScreen extends StatelessWidget {
         ),
         title: const Text(
           'Settings',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), // Bold to match HomePage
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), 
         ),
         backgroundColor: primaryColor,
         elevation: 0,
@@ -104,7 +103,7 @@ class SettingsScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const EditProfileScreen(),
+                            builder: (context) => const UserProfileScreen(),
                           ),
                         );
                       },
@@ -254,7 +253,7 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       ListTile(
                         leading: _buildIcon(Icons.info),
-                        title: Text('About CoffeeCore', style: TextStyle(color: primaryColor)), // Updated from Kilimo Mkononi
+                        title: Text('About CoffeeCore', style: TextStyle(color: primaryColor)), 
                         onTap: () {
                           Navigator.push(
                             context,
@@ -276,14 +275,14 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 10.0),
                 child: GestureDetector(
-                  onTap: () => _handleLogout(context), // Updated to use proper logout
+                  onTap: () => _handleLogout(context), 
                   child: const Center(
                     child: Text(
                       'Logout',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
-                        fontWeight: FontWeight.bold, // Added for consistency
+                        fontWeight: FontWeight.bold, 
                       ),
                     ),
                   ),
