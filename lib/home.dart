@@ -19,6 +19,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logger/logger.dart';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'search_delegate.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -243,7 +244,12 @@ class _HomePageState extends State<HomePage> {
             ),
             IconButton(
               icon: const Icon(Icons.search, color: Colors.white, size: 40),
-              onPressed: () {},
+              onPressed: () {
+                showSearch(
+                  context: context,
+                  delegate: CoffeeCoreSearchDelegate(getSearchableItems(context)),
+                );
+              },
             ),
           ],
         ),

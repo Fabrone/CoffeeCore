@@ -643,7 +643,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
       final byteData = await rootBundle.load('assets/icons/icon.png');
       return pw.MemoryImage(byteData.buffer.asUint8List());
     } catch (e) {
-      // Log error in production using a logging framework instead of print
+
       return null;
     }
   }
@@ -796,7 +796,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
               Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage())),
         ),
         title:
-            const Text('Coffee Farm Management', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const Text('Farm Management', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: customBrown,
         actions: [
           IconButton(

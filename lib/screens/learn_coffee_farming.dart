@@ -11,7 +11,6 @@ class LearnCoffeeFarming extends StatefulWidget {
 class LearnCoffeeFarmingState extends State<LearnCoffeeFarming> {
   String? _selectedSection; 
 
-  // Coffee Farming Sections with Icons and Detailed Content
   final Map<String, Map<String, dynamic>> _coffeeFarmingGuide = {
     'Planning Your Coffee Farm': {
       'icon': Icons.map,
@@ -247,6 +246,7 @@ Effective pest control keeps your coffee thriving:
         title: Text(
           "Learn Coffee Farming",
           style: GoogleFonts.poppins(color: Colors.white, fontSize: 20),
+          
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),

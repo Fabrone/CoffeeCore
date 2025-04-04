@@ -15,8 +15,8 @@ class PestDiseaseHomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Coffee Pest & Disease Management',
-          style: TextStyle(color: Colors.white),
+          'Pest & Disease Management',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: coffeeBrown,
         foregroundColor: Colors.white,

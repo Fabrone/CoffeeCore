@@ -14,7 +14,7 @@ class CoffeeSoilHomePage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF3C2F2F),
         title: const Text(
-          'Soil Management',
+          'Field Data(Soil Management)',
           style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
