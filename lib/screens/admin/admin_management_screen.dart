@@ -31,15 +31,15 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       setState(() {
         _allCollections = [
           'Users',
-          'marketdata',
-          'fielddata',
           'Admins',
-          'MarketOfficers', // Added MarketOfficers to the list
-          'market_prices',  // Added market_prices to the list
+          'MarketOfficers', 
+          'market_prices',  
           'Manuals',
-          'diseaseinterventiondata',
-          'pestinterventiondata',
+          'coffee_soil_data',
+          'coffee_disease_interventions',
+          'coffee_pest_interventions',
           'User_logs',
+          'admin_logs',
           'ManualRequests',
         ];
       });

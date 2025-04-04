@@ -25,6 +25,7 @@ class _CoffeeSoilSummaryPageState extends State<CoffeeSoilSummaryPage> {
         stream: FirebaseFirestore.instance
             .collection('coffee_soil_data')
             .where('userId', isEqualTo: widget.userId)
+            .where('isDeleted', isEqualTo: false) // Filter out soft-deleted entries
             .orderBy('timestamp', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
@@ -113,7 +114,6 @@ class _CoffeeSoilSummaryPageState extends State<CoffeeSoilSummaryPage> {
     final calciumController = TextEditingController(text: entry.nutrients['Ca']?.toString());
     List<Map<String, dynamic>> editedInterventions = List.from(entry.interventions);
 
-    // Store ScaffoldMessengerState before async operation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     final result = await showDialog<bool>(
@@ -156,6 +156,7 @@ class _CoffeeSoilSummaryPageState extends State<CoffeeSoilSummaryPage> {
         interventions: editedInterventions,
         timestamp: Timestamp.now(),
         structureType: entry.structureType,
+        isDeleted: entry.isDeleted, // Preserve existing isDeleted value
       );
       await FirebaseFirestore.instance.collection('coffee_soil_data').doc(docId).set(updatedData.toMap());
       if (mounted) {
@@ -167,7 +168,6 @@ class _CoffeeSoilSummaryPageState extends State<CoffeeSoilSummaryPage> {
   Future<void> _addResult(BuildContext context, CoffeeSoilData entry, String docId) async {
     final resultController = TextEditingController();
 
-    // Store ScaffoldMessengerState before async operation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     final updatedIntervention = await showDialog<Map<String, dynamic>>(
@@ -179,20 +179,29 @@ class _CoffeeSoilSummaryPageState extends State<CoffeeSoilSummaryPage> {
           children: [
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(labelText: 'Result', border: OutlineInputBorder()),
-              items: const [DropdownMenuItem(value: 'Positive', child: Text('Positive')), DropdownMenuItem(value: 'Negative', child: Text('Negative'))],
+              items: const [
+                DropdownMenuItem(value: 'Positive', child: Text('Positive')),
+                DropdownMenuItem(value: 'Negative', child: Text('Negative'))
+              ],
               onChanged: (value) => resultController.text = value ?? '',
             ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, null), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, {'result': resultController.text}), child: const Text('Save')),
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, {'result': resultController.text}),
+              child: const Text('Save')),
         ],
       ),
     );
 
     if (updatedIntervention != null && mounted) {
-      final updatedInterventions = entry.interventions.map((i) => i['followUpDate'].toDate().isBefore(DateTime.now()) && i['result'] == null ? {...i, 'result': updatedIntervention['result']} : i).toList();
+      final updatedInterventions = entry.interventions
+          .map((i) => i['followUpDate'].toDate().isBefore(DateTime.now()) && i['result'] == null
+              ? {...i, 'result': updatedIntervention['result']}
+              : i)
+          .toList();
       final updatedData = CoffeeSoilData(
         userId: entry.userId,
         plotId: entry.plotId,
@@ -202,6 +211,7 @@ class _CoffeeSoilSummaryPageState extends State<CoffeeSoilSummaryPage> {
         interventions: updatedInterventions,
         timestamp: entry.timestamp,
         structureType: entry.structureType,
+        isDeleted: entry.isDeleted, // Preserve existing isDeleted value
       );
       await FirebaseFirestore.instance.collection('coffee_soil_data').doc(docId).set(updatedData.toMap());
       if (mounted) {
@@ -211,25 +221,26 @@ class _CoffeeSoilSummaryPageState extends State<CoffeeSoilSummaryPage> {
   }
 
   Future<void> _deleteSoilData(BuildContext context, String docId) async {
-    // Store ScaffoldMessengerState before async operation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Deletion', style: TextStyle(color: Color(0xFF4A2C2A))),
-        content: const Text('Are you sure you want to delete this entry?'),
+        content: const Text('Are you sure you want to delete this entry? This will mark it as deleted.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
 
     if (confirm == true && mounted) {
-      await FirebaseFirestore.instance.collection('coffee_soil_data').doc(docId).delete();
+      await FirebaseFirestore.instance.collection('coffee_soil_data').doc(docId).update({'isDeleted': true});
       if (mounted) {
-        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Entry deleted')));
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Entry marked as deleted')));
       }
     }
   }

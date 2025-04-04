@@ -178,7 +178,7 @@ class MarketPricesWidgetState extends State<MarketPricesWidget> {
                   controller: _marketController,
                   decoration: InputDecoration(
                     labelText: 'Enter Market',
-                    hintText: 'e.g., Gikomba',
+                    hintText: 'e.g., Kangemi',
                     prefixIcon: Icon(Icons.store, color: coffeeBrown),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,

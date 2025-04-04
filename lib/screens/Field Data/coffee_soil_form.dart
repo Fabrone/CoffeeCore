@@ -11,7 +11,14 @@ class CoffeeSoilForm extends StatefulWidget {
   final FlutterLocalNotificationsPlugin notificationsPlugin;
   final VoidCallback onSave;
 
-  const CoffeeSoilForm({required this.userId, required this.plotId, required this.structureType, required this.notificationsPlugin, required this.onSave, super.key});
+  const CoffeeSoilForm({
+    required this.userId,
+    required this.plotId,
+    required this.structureType,
+    required this.notificationsPlugin,
+    required this.onSave,
+    super.key,
+  });
 
   @override
   State<CoffeeSoilForm> createState() => _CoffeeSoilFormState();
@@ -37,7 +44,12 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
   };
 
   static const Map<String, List<String>> _stages = {
-    'Coffee': ['Establishment/Seedling', 'Vegetative Growth', 'Flowering and Fruiting', 'Maturation and Harvesting'],
+    'Coffee': [
+      'Establishment/Seedling',
+      'Vegetative Growth',
+      'Flowering and Fruiting',
+      'Maturation and Harvesting'
+    ],
   };
 
   String _selectedStage = 'Establishment/Seedling';
@@ -54,7 +66,17 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
       _recommendations.clear();
       final optimal = _optimalValues[_selectedStage]!;
       for (var nutrient in ['pH', 'N', 'P', 'K', 'Mg', 'Ca']) {
-        final controller = nutrient == 'pH' ? _phController : nutrient == 'N' ? _nitrogenController : nutrient == 'P' ? _phosphorusController : nutrient == 'K' ? _potassiumController : nutrient == 'Mg' ? _magnesiumController : _calciumController;
+        final controller = nutrient == 'pH'
+            ? _phController
+            : nutrient == 'N'
+                ? _nitrogenController
+                : nutrient == 'P'
+                    ? _phosphorusController
+                    : nutrient == 'K'
+                        ? _potassiumController
+                        : nutrient == 'Mg'
+                            ? _magnesiumController
+                            : _calciumController;
         final value = controller.text.isNotEmpty ? double.parse(controller.text) : null;
         if (value != null) {
           final optimalValue = optimal[nutrient]!;
@@ -75,21 +97,33 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
   String _getRecommendation(String nutrient, String action) {
     if (action == 'raise') {
       switch (nutrient) {
-        case 'pH': return 'Apply lime (calcium carbonate) at 1-2 tons/acre.';
-        case 'N': return 'Use urea (46-0-0) or composted manure (20 kg/plant).';
-        case 'P': return 'Apply triple superphosphate (0-46-0) at 100-150 kg/acre.';
-        case 'K': return 'Use muriate of potash (0-0-60) at 150-200 kg/acre.';
-        case 'Mg': return 'Apply magnesium sulfate (Epsom salt) at 20-30 kg/acre.';
-        case 'Ca': return 'Use gypsum (calcium sulfate) at 500-1000 kg/acre.';
+        case 'pH':
+          return 'Apply lime (calcium carbonate) at 1-2 tons/acre.';
+        case 'N':
+          return 'Use urea (46-0-0) or composted manure (20 kg/plant).';
+        case 'P':
+          return 'Apply triple superphosphate (0-46-0) at 100-150 kg/acre.';
+        case 'K':
+          return 'Use muriate of potash (0-0-60) at 150-200 kg/acre.';
+        case 'Mg':
+          return 'Apply magnesium sulfate (Epsom salt) at 20-30 kg/acre.';
+        case 'Ca':
+          return 'Use gypsum (calcium sulfate) at 500-1000 kg/acre.';
       }
     } else {
       switch (nutrient) {
-        case 'pH': return 'Add elemental sulfur (100-200 kg/acre) or organic matter.';
-        case 'N': return 'Reduce nitrogen fertilizers; leach with water if possible.';
-        case 'P': return 'No direct reduction; avoid further P application.';
-        case 'K': return 'No direct reduction; avoid further K application.';
-        case 'Mg': return 'No direct reduction; avoid Mg-rich fertilizers.';
-        case 'Ca': return 'No direct reduction; avoid Ca-rich amendments.';
+        case 'pH':
+          return 'Add elemental sulfur (100-200 kg/acre) or organic matter.';
+        case 'N':
+          return 'Reduce nitrogen fertilizers; leach with water if possible.';
+        case 'P':
+          return 'No direct reduction; avoid further P application.';
+        case 'K':
+          return 'No direct reduction; avoid further K application.';
+        case 'Mg':
+          return 'No direct reduction; avoid Mg-rich fertilizers.';
+        case 'Ca':
+          return 'No direct reduction; avoid Ca-rich amendments.';
       }
     }
     return '';
@@ -112,6 +146,7 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
         interventions: _interventions,
         timestamp: Timestamp.now(),
         structureType: widget.structureType,
+        isDeleted: false, // Explicitly set for new entries
       );
 
       await FirebaseFirestore.instance
@@ -157,17 +192,28 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
             children: [
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Nutrient', border: OutlineInputBorder()),
-                items: _nutrientStatus.entries.where((e) => e.value != 'Optimal').map((e) => DropdownMenuItem(value: e.key, child: Text(e.key))).toList(),
+                items: _nutrientStatus.entries
+                    .where((e) => e.value != 'Optimal')
+                    .map((e) => DropdownMenuItem(value: e.key, child: Text(e.key)))
+                    .toList(),
                 onChanged: (value) => methodController.text = _recommendations[value] ?? '',
               ),
-              TextField(controller: methodController, decoration: const InputDecoration(labelText: 'Method')),
-              TextField(controller: quantityController, decoration: const InputDecoration(labelText: 'Quantity'), keyboardType: TextInputType.number),
+              TextField(
+                  controller: methodController, decoration: const InputDecoration(labelText: 'Method')),
+              TextField(
+                  controller: quantityController,
+                  decoration: const InputDecoration(labelText: 'Quantity'),
+                  keyboardType: TextInputType.number),
               TextField(controller: unitController, decoration: const InputDecoration(labelText: 'Unit')),
               ListTile(
                 title: Text('Follow-up: ${followUpDate.toString().substring(0, 10)}'),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () async {
-                  final picked = await showDatePicker(context: context, initialDate: followUpDate, firstDate: DateTime.now(), lastDate: DateTime(2030));
+                  final picked = await showDatePicker(
+                      context: context,
+                      initialDate: followUpDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime(2030));
                   if (picked != null) setState(() => followUpDate = picked);
                 },
               ),
@@ -176,12 +222,21 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancel')),
-          TextButton(onPressed: () {
-            method = methodController.text;
-            quantity = quantityController.text;
-            unit = unitController.text;
-            if (method!.isNotEmpty) Navigator.pop(context, {'method': method, 'quantity': quantity, 'unit': unit, 'followUpDate': Timestamp.fromDate(followUpDate)});
-          }, child: const Text('Save')),
+          TextButton(
+              onPressed: () {
+                method = methodController.text;
+                quantity = quantityController.text;
+                unit = unitController.text;
+                if (method!.isNotEmpty) {
+                  Navigator.pop(context, {
+                    'method': method,
+                    'quantity': quantity,
+                    'unit': unit,
+                    'followUpDate': Timestamp.fromDate(followUpDate)
+                  });
+                }
+              },
+              child: const Text('Save')),
         ],
       ),
     );
@@ -229,32 +284,66 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
               onChanged: (value) => setState(() => _selectedStage = value ?? 'Establishment/Seedling'),
             ),
             const SizedBox(height: 16),
-            TextFormField(controller: _phController, decoration: _inputDecoration('Soil pH'), keyboardType: TextInputType.number, validator: _validateNumber, onChanged: (_) => _updateAnalysis()),
+            TextFormField(
+                controller: _phController,
+                decoration: _inputDecoration('Soil pH'),
+                keyboardType: TextInputType.number,
+                validator: _validateNumber,
+                onChanged: (_) => _updateAnalysis()),
             _buildStatusRow('pH'),
-            TextFormField(controller: _nitrogenController, decoration: _inputDecoration('Nitrogen (N) kg/acre'), keyboardType: TextInputType.number, validator: _validateNumber, onChanged: (_) => _updateAnalysis()),
+            TextFormField(
+                controller: _nitrogenController,
+                decoration: _inputDecoration('Nitrogen (N) kg/acre'),
+                keyboardType: TextInputType.number,
+                validator: _validateNumber,
+                onChanged: (_) => _updateAnalysis()),
             _buildStatusRow('N'),
-            TextFormField(controller: _phosphorusController, decoration: _inputDecoration('Phosphorus (P) kg/acre'), keyboardType: TextInputType.number, validator: _validateNumber, onChanged: (_) => _updateAnalysis()),
+            TextFormField(
+                controller: _phosphorusController,
+                decoration: _inputDecoration('Phosphorus (P) kg/acre'),
+                keyboardType: TextInputType.number,
+                validator: _validateNumber,
+                onChanged: (_) => _updateAnalysis()),
             _buildStatusRow('P'),
-            TextFormField(controller: _potassiumController, decoration: _inputDecoration('Potassium (K) kg/acre'), keyboardType: TextInputType.number, validator: _validateNumber, onChanged: (_) => _updateAnalysis()),
+            TextFormField(
+                controller: _potassiumController,
+                decoration: _inputDecoration('Potassium (K) kg/acre'),
+                keyboardType: TextInputType.number,
+                validator: _validateNumber,
+                onChanged: (_) => _updateAnalysis()),
             _buildStatusRow('K'),
-            TextFormField(controller: _magnesiumController, decoration: _inputDecoration('Magnesium (Mg) kg/acre'), keyboardType: TextInputType.number, validator: _validateNumber, onChanged: (_) => _updateAnalysis()),
+            TextFormField(
+                controller: _magnesiumController,
+                decoration: _inputDecoration('Magnesium (Mg) kg/acre'),
+                keyboardType: TextInputType.number,
+                validator: _validateNumber,
+                onChanged: (_) => _updateAnalysis()),
             _buildStatusRow('Mg'),
-            TextFormField(controller: _calciumController, decoration: _inputDecoration('Calcium (Ca) kg/acre'), keyboardType: TextInputType.number, validator: _validateNumber, onChanged: (_) => _updateAnalysis()),
+            TextFormField(
+                controller: _calciumController,
+                decoration: _inputDecoration('Calcium (Ca) kg/acre'),
+                keyboardType: TextInputType.number,
+                validator: _validateNumber,
+                onChanged: (_) => _updateAnalysis()),
             _buildStatusRow('Ca'),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _addIntervention,
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A2C2A), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A2C2A), foregroundColor: Colors.white),
               child: const Text('Add Intervention'),
             ),
             ..._interventions.map((i) => ListTile(
-              title: Text('${i['method']} - ${i['quantity']} ${i['unit']}'),
-              subtitle: Text('Follow-up: ${i['followUpDate'].toDate().toString().substring(0, 10)}'),
-            )),
+                  title: Text('${i['method']} - ${i['quantity']} ${i['unit']}'),
+                  subtitle: Text('Follow-up: ${i['followUpDate'].toDate().toString().substring(0, 10)}'),
+                )),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _saveForm,
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A2C2A), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A2C2A),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50)),
               child: const Text('Save Soil Data', style: TextStyle(fontSize: 16)),
             ),
           ],
@@ -264,12 +353,13 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
   }
 
   InputDecoration _inputDecoration(String label) => InputDecoration(
-    labelText: label,
-    border: const OutlineInputBorder(),
-    focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF3A5F0B))),
-  );
+        labelText: label,
+        border: const OutlineInputBorder(),
+        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF3A5F0B))),
+      );
 
-  String? _validateNumber(String? value) => value != null && value.isNotEmpty && double.tryParse(value) == null ? 'Enter a valid number' : null;
+  String? _validateNumber(String? value) =>
+      value != null && value.isNotEmpty && double.tryParse(value) == null ? 'Enter a valid number' : null;
 
   Widget _buildStatusRow(String nutrient) {
     final status = _nutrientStatus[nutrient];
@@ -279,11 +369,18 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (status != null) Text(
-            '$nutrient Status: $status',
-            style: TextStyle(color: status == 'Low' ? Colors.red : status == 'High' ? Colors.orange : Colors.green),
-          ),
-          if (recommendation != null) Text('Recommendation: $recommendation', style: const TextStyle(color: Color(0xFF3A5F0B))),
+          if (status != null)
+            Text(
+              '$nutrient Status: $status',
+              style: TextStyle(
+                  color: status == 'Low'
+                      ? Colors.red
+                      : status == 'High'
+                          ? Colors.orange
+                          : Colors.green),
+            ),
+          if (recommendation != null)
+            Text('Recommendation: $recommendation', style: const TextStyle(color: Color(0xFF3A5F0B))),
         ],
       ),
     );

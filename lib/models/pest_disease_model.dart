@@ -3,10 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class PestData {
   final String name;
   final String imagePath;
-  final List<String> preventionStrategies; // Renamed to Possible Strategies
-  final String activeAgent; // Used in Intervention(Active Ingredient)
-  final List<String> possibleCauses; // Renamed to Possible Causes
-  final List<String> herbicides; // Renamed to Herbicides/Pesticides
+  final List<String> preventionStrategies; 
+  final String activeAgent; 
+  final List<String> possibleCauses; 
+  final List<String> herbicides; 
 
   PestData({
     required this.name,
@@ -17,7 +17,6 @@ class PestData {
     required this.herbicides,
   });
 
-  // Static pestLibrary is optional now since PestManagementPage handles dynamic data
   static final Map<String, PestData> pestLibrary = {};
 }
 
@@ -72,7 +71,7 @@ class PestIntervention {
       cropStage: data['cropStage'] as String? ?? 'Unknown',
       intervention: data['intervention'] as String? ?? '',
       area: data['area'] as double?,
-      areaUnit: data['areaUnit'] as String? ?? 'Acres', // Updated default to Acres
+      areaUnit: data['areaUnit'] as String? ?? 'Acres', 
       timestamp: data['timestamp'] as Timestamp? ?? Timestamp.now(),
       userId: data['userId'] as String? ?? 'Unknown',
       isDeleted: data['isDeleted'] as bool? ?? false,
