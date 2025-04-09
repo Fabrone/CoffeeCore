@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "832093698869",
+    "project_id": "coffeecore-7111a",
+    "storage_bucket": "coffeecore-7111a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:832093698869:android:2423813438820c42572a7c",
+        "android_client_info": {
+          "package_name": "com.example.coffeecore"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9DrJOt2PN1-6hEKqzyBnKWIag5Eapg4I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
