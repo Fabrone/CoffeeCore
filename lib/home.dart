@@ -32,7 +32,7 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? _userData;
   Uint8List? _profileImageBytes;
   bool _isMainAdmin = false;
-  bool _isMarketOfficer = false; // New flag for Market Officer
+  bool _isMarketOfficer = false;
   final logger = Logger(printer: PrettyPrinter());
   String? _userId;
 
@@ -50,65 +50,73 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     logger.i('HomePage initState called');
-    _fetchUserData();
-    _listenToUserAndAdminStatus();
+    _initializeUserData();
     _listenToAuthState();
   }
 
-  Future<void> _fetchUserData() async {
+  Future<void> _initializeUserData() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      logger.i('Fetching data for user: ${user.email}, UID: ${user.uid}');
       _userId = user.uid;
+      await _fetchUserData();
+      _listenToUserAndRoleStatus();
+    } else {
+      _redirectToLogin('No user logged in');
+    }
+  }
+
+  Future<void> _fetchUserData() async {
+    if (_userId == null) return;
+
+    try {
       DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
           .collection('Users')
-          .doc(user.uid)
+          .doc(_userId)
           .get();
-      if (userSnapshot.exists) {
-        AppUser appUser = AppUser.fromFirestore(userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
+      
+      if (!userSnapshot.exists) {
+        logger.w('User document not found in Users collection for UID: $_userId');
+        _redirectToLogin('User account not found. Please log in again.');
+        return;
+      }
 
-        DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
-            .collection('Admins')
-            .doc(user.uid)
-            .get();
-        bool isAdmin = adminSnapshot.exists;
+      AppUser appUser = AppUser.fromFirestore(userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
 
-        DocumentSnapshot marketOfficerSnapshot = await FirebaseFirestore.instance
-            .collection('Market Officers')
-            .doc(user.uid)
-            .get();
-        bool isMarketOfficer = marketOfficerSnapshot.exists;
+      DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
+          .collection('Admins')
+          .doc(_userId)
+          .get();
+      bool isAdmin = adminSnapshot.exists;
 
-        String? profileImageBase64 = appUser.profileImage;
-        Uint8List? decodedImage;
+      DocumentSnapshot marketOfficerSnapshot = await FirebaseFirestore.instance
+          .collection('MarketOfficers')
+          .doc(_userId)
+          .get();
+      bool isMarketOfficer = marketOfficerSnapshot.exists;
 
-        try {
-          decodedImage = base64Decode(profileImageBase64!);
-        } catch (e) {
-          logger.e('Error decoding profile image: $e');
+      String? profileImageBase64 = appUser.profileImage;
+      Uint8List? decodedImage;
+
+      try {
+        if (profileImageBase64 != null) {
+          decodedImage = base64Decode(profileImageBase64);
         }
+      } catch (e) {
+        logger.e('Error decoding profile image: $e');
+      }
 
+      if (mounted) {
         setState(() {
           _userData = appUser.toMap();
           _profileImageBytes = decodedImage;
           _isMainAdmin = isAdmin;
-          _isMarketOfficer = isMarketOfficer; // Set Market Officer status
-          logger.i('Initial fetch - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsMarketOfficer: $_isMarketOfficer');
-        });
-      } else {
-        logger.w('No user data found in Firestore for UID: ${user.uid}');
-        setState(() {
-          _userId = user.uid;
+          _isMarketOfficer = isMarketOfficer;
+          logger.i('Fetched data - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsMarketOfficer: $_isMarketOfficer');
         });
       }
-    } else {
-      logger.w('No user logged in');
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-        );
-      }
+    } catch (e) {
+      logger.e('Error fetching user data: $e');
+      _redirectToLogin('Error fetching user data. Please log in again.');
     }
   }
 
@@ -116,64 +124,96 @@ class _HomePageState extends State<HomePage> {
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
       if (user != null) {
         logger.i('Auth state changed - User logged in: ${user.uid}');
-        setState(() {
-          _userId = user.uid;
-        });
-        _fetchUserData();
+        if (mounted) {
+          setState(() {
+            _userId = user.uid;
+          });
+          _fetchUserData();
+          _listenToUserAndRoleStatus();
+        }
       } else {
         logger.w('Auth state changed - No user logged in');
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
-          );
-        }
+        _redirectToLogin('User logged out. Please log in again.');
       }
     });
   }
 
-  void _listenToUserAndAdminStatus() {
-    User? user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      FirebaseFirestore.instance
-          .collection('Users')
-          .doc(user.uid)
-          .snapshots()
-          .listen((userSnapshot) {
-        if (userSnapshot.exists && mounted) {
-          AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
-          setState(() {
-            _userData = appUser.toMap();
-            logger.i('User data updated: $_userData');
-          });
-        }
-      });
+  void _listenToUserAndRoleStatus() {
+    if (_userId == null) return;
 
-      FirebaseFirestore.instance
-          .collection('Admins')
-          .doc(user.uid)
-          .snapshots()
-          .listen((adminSnapshot) {
-        if (mounted) {
-          setState(() {
-            _isMainAdmin = adminSnapshot.exists;
-            logger.i('Admin status updated: $_isMainAdmin');
-          });
-        }
-      });
+    // Listen to Users collection
+    FirebaseFirestore.instance
+        .collection('Users')
+        .doc(_userId)
+        .snapshots()
+        .listen((userSnapshot) {
+      if (!userSnapshot.exists) {
+        logger.w('User document deleted from Users collection for UID: $_userId');
+        _redirectToLogin('Your account has been removed. Please log in again.');
+      } else if (mounted) {
+        AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
+        setState(() {
+          _userData = appUser.toMap();
+          logger.i('User data updated: $_userData');
+        });
+      }
+    }, onError: (e) {
+      logger.e('Error listening to Users: $e');
+      _redirectToLogin('Error syncing user data. Please log in again.');
+    });
 
-      FirebaseFirestore.instance
-          .collection('MarketOfficers')
-          .doc(user.uid)
-          .snapshots()
-          .listen((marketOfficerSnapshot) {
-        if (mounted) {
-          setState(() {
-            _isMarketOfficer = marketOfficerSnapshot.exists;
-            logger.i('Market Officer status updated: $_isMarketOfficer');
-          });
-        }
-      });
+    // Listen to Admins collection
+    FirebaseFirestore.instance
+        .collection('Admins')
+        .doc(_userId)
+        .snapshots()
+        .listen((adminSnapshot) {
+      if (mounted) {
+        setState(() {
+          _isMainAdmin = adminSnapshot.exists;
+          logger.i('Admin status updated: $_isMainAdmin');
+        });
+      }
+    }, onError: (e) {
+      logger.e('Error listening to Admins: $e');
+      if (mounted) {
+        setState(() {
+          _isMainAdmin = false;
+        });
+      }
+    });
+
+    // Listen to MarketOfficers collection
+    FirebaseFirestore.instance
+        .collection('MarketOfficers')
+        .doc(_userId)
+        .snapshots()
+        .listen((marketOfficerSnapshot) {
+      if (mounted) {
+        setState(() {
+          _isMarketOfficer = marketOfficerSnapshot.exists;
+          logger.i('Market Officer status updated: $_isMarketOfficer');
+        });
+      }
+    }, onError: (e) {
+      logger.e('Error listening to MarketOfficers: $e');
+      if (mounted) {
+        setState(() {
+          _isMarketOfficer = false;
+        });
+      }
+    });
+  }
+
+  void _redirectToLogin(String message) {
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     }
   }
 
@@ -182,7 +222,8 @@ class _HomePageState extends State<HomePage> {
       await FirebaseAuth.instance.signOut();
       if (!mounted) return;
       Navigator.pop(context);
-      Navigator.of(context).pushReplacement(
+      Navigator.pushReplacement(
+        context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
     } catch (e) {
@@ -196,6 +237,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_userId == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(MediaQuery.of(context).size.height * 0.08),
@@ -235,27 +280,35 @@ class _HomePageState extends State<HomePage> {
           children: [
             _buildCarousel(),
             _buildClickableSections(),
-            if (_isMainAdmin)
-              _buildAdminButton()
-            else
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Builder(
-                    builder: (context) => _buildMenuButton(context),
-                  ),
-                  if (_isMarketOfficer) 
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16.0),
-                      child: _buildMarketOfficerButton(),
-                    ),
-                ],
-              ),
+            _buildRoleBasedButtons(),
           ],
         ),
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
+  }
+
+  Widget _buildRoleBasedButtons() {
+    if (_isMainAdmin) {
+      return _buildAdminButton();
+    } else if (_isMarketOfficer) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Builder(
+            builder: (context) => _buildMenuButton(context),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: _buildMarketOfficerButton(),
+          ),
+        ],
+      );
+    } else {
+      return Builder(
+        builder: (context) => _buildMenuButton(context),
+      );
+    }
   }
 
   Widget _buildAdminButton() {
@@ -280,16 +333,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildMenuButton(BuildContext scaffoldContext) {
-    return ElevatedButton.icon(
-      onPressed: () {
-        Scaffold.of(scaffoldContext).openDrawer();
-      },
-      icon: const Icon(Icons.menu, color: Colors.white),
-      label: const Text('MENU', style: TextStyle(color: Colors.white)),
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        backgroundColor: Colors.brown[700],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Scaffold.of(scaffoldContext).openDrawer();
+        },
+        icon: const Icon(Icons.menu, color: Colors.white),
+        label: const Text('MENU', style: TextStyle(color: Colors.white)),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          backgroundColor: Colors.brown[700],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       ),
     );
   }
@@ -368,6 +424,7 @@ class _HomePageState extends State<HomePage> {
       child: GridView.count(
         crossAxisCount: 2,
         shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
           _buildClickableCard('Coffee Farming Tips', Icons.lightbulb, () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => LearnCoffeeFarming()));
@@ -480,7 +537,7 @@ class _HomePageState extends State<HomePage> {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const WeatherScreen()));
           }),
           _buildDrawerItem(Icons.input, 'Field Data (Soil)', () {
-            logger.i('Navigating to CoffeeManagementScreen, userId: $_userId');
+            logger.i('Navigating to CoffeeSoilHomePage, userId: $_userId');
             if (_userId != null) {
               Navigator.push(
                 context,
