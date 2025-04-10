@@ -10,7 +10,7 @@ import 'package:coffeecore/screens/pests_diseases_home.dart';
 import 'package:coffeecore/screens/user_profile.dart';
 import 'package:coffeecore/screens/weather_screen.dart';
 import 'package:coffeecore/screens/market_prices.dart';
-import 'package:coffeecore/screens/market_officer_screen.dart'; 
+import 'package:coffeecore/screens/market_officer_screen.dart';
 import 'package:coffeecore/authentication/login.dart';
 import 'package:coffeecore/settings/notifications_settings_screen.dart';
 import 'package:coffeecore/settings/settings_screen.dart';
@@ -73,7 +73,7 @@ class _HomePageState extends State<HomePage> {
           .collection('Users')
           .doc(_userId)
           .get();
-      
+
       if (!userSnapshot.exists) {
         logger.w('User document not found in Users collection for UID: $_userId');
         _redirectToLogin('User account not found. Please log in again.');
@@ -98,11 +98,12 @@ class _HomePageState extends State<HomePage> {
       Uint8List? decodedImage;
 
       try {
-        if (profileImageBase64 != null) {
+        if (profileImageBase64 != null && profileImageBase64.isNotEmpty) {
           decodedImage = base64Decode(profileImageBase64);
         }
       } catch (e) {
         logger.e('Error decoding profile image: $e');
+        decodedImage = null; // Ensure decodedImage is null if decoding fails
       }
 
       if (mounted) {
@@ -116,7 +117,12 @@ class _HomePageState extends State<HomePage> {
       }
     } catch (e) {
       logger.e('Error fetching user data: $e');
-      _redirectToLogin('Error fetching user data. Please log in again.');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching user data: $e')),
+        );
+      }
+      // Do not redirect to login here; let the listener handle it
     }
   }
 
@@ -141,7 +147,6 @@ class _HomePageState extends State<HomePage> {
   void _listenToUserAndRoleStatus() {
     if (_userId == null) return;
 
-    // Listen to Users collection
     FirebaseFirestore.instance
         .collection('Users')
         .doc(_userId)
@@ -152,8 +157,19 @@ class _HomePageState extends State<HomePage> {
         _redirectToLogin('Your account has been removed. Please log in again.');
       } else if (mounted) {
         AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
+        String? profileImageBase64 = appUser.profileImage;
+        Uint8List? decodedImage;
+        try {
+          if (profileImageBase64 != null && profileImageBase64.isNotEmpty) {
+            decodedImage = base64Decode(profileImageBase64);
+          }
+        } catch (e) {
+          logger.e('Error decoding profile image in listener: $e');
+          decodedImage = null;
+        }
         setState(() {
           _userData = appUser.toMap();
+          _profileImageBytes = decodedImage;
           logger.i('User data updated: $_userData');
         });
       }
@@ -162,17 +178,19 @@ class _HomePageState extends State<HomePage> {
       _redirectToLogin('Error syncing user data. Please log in again.');
     });
 
-    // Listen to Admins collection
     FirebaseFirestore.instance
         .collection('Admins')
         .doc(_userId)
         .snapshots()
         .listen((adminSnapshot) {
       if (mounted) {
-        setState(() {
-          _isMainAdmin = adminSnapshot.exists;
-          logger.i('Admin status updated: $_isMainAdmin');
-        });
+        bool newAdminStatus = adminSnapshot.exists;
+        if (newAdminStatus != _isMainAdmin) {
+          setState(() {
+            _isMainAdmin = newAdminStatus;
+            logger.i('Admin status updated: $_isMainAdmin');
+          });
+        }
       }
     }, onError: (e) {
       logger.e('Error listening to Admins: $e');
@@ -183,17 +201,19 @@ class _HomePageState extends State<HomePage> {
       }
     });
 
-    // Listen to MarketOfficers collection
     FirebaseFirestore.instance
         .collection('MarketOfficers')
         .doc(_userId)
         .snapshots()
         .listen((marketOfficerSnapshot) {
       if (mounted) {
-        setState(() {
-          _isMarketOfficer = marketOfficerSnapshot.exists;
-          logger.i('Market Officer status updated: $_isMarketOfficer');
-        });
+        bool newMarketOfficerStatus = marketOfficerSnapshot.exists;
+        if (newMarketOfficerStatus != _isMarketOfficer) {
+          setState(() {
+            _isMarketOfficer = newMarketOfficerStatus;
+            logger.i('Market Officer status updated: $_isMarketOfficer');
+          });
+        }
       }
     }, onError: (e) {
       logger.e('Error listening to MarketOfficers: $e');

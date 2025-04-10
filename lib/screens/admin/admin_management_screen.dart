@@ -31,16 +31,14 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       setState(() {
         _allCollections = [
           'Users',
-          'marketdata',
-          'fielddata',
           'Admins',
-          'MarketOfficers', // Added MarketOfficers to the list
-          'market_prices',  // Added market_prices to the list
-          'Manuals',
-          'diseaseinterventiondata',
-          'pestinterventiondata',
+          'MarketOfficers',
+          'market_prices',
+          'coffee_disease_interventions',
+          'coffee_pest_interventions',
           'User_logs',
-          'ManualRequests',
+          'admin_logs',
+          'coffee_soil_data',
         ];
       });
     } catch (e) {
@@ -116,7 +114,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.brown[700], // Updated to coffee brown theme
+        backgroundColor: Colors.brown[700],
         foregroundColor: Colors.white,
       ),
       body: Container(
@@ -182,10 +180,9 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       physics: const NeverScrollableScrollPhysics(),
       childAspectRatio: 1.5,
       children: [
-        _buildOptionCard('Assign Admin', Icons.person_add, () => _showAssignRoleDialog('Admins')),
-        _buildOptionCard('Assign Market Officer', Icons.price_change, () => _showAssignRoleDialog('MarketOfficers')),
-        _buildOptionCard('Manage Pests', Icons.bug_report, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPestManagementPage()))),
+        _buildOptionCard('Assign User Role', Icons.person_add, () => _showRoleSelectionDialog()),
         _buildOptionCard('Manage Users', Icons.people, () => _showManageUsersScreen()),
+        _buildOptionCard('Manage Pests', Icons.bug_report, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPestManagementPage()))),
         _buildOptionCard('Filter Users', Icons.filter_list, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FilterUsersScreen()))),
       ],
     );
@@ -209,6 +206,51 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showRoleSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Assign User Role', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showAssignRoleDialog('Admins');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.brown[700],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Assign Admin Role'),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showAssignRoleDialog('MarketOfficers');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.brown[700],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Assign Market Officer Role'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
