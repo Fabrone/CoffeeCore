@@ -33,6 +33,7 @@ class _HomePageState extends State<HomePage> {
   Uint8List? _profileImageBytes;
   bool _isMainAdmin = false;
   bool _isMarketOfficer = false;
+  bool _isCoopAdmin = false; // New state for Co-op Admin
   final logger = Logger(printer: PrettyPrinter());
   String? _userId;
 
@@ -94,6 +95,12 @@ class _HomePageState extends State<HomePage> {
           .get();
       bool isMarketOfficer = marketOfficerSnapshot.exists;
 
+      DocumentSnapshot coopAdminSnapshot = await FirebaseFirestore.instance
+          .collection('CoopAdmins')
+          .doc(_userId)
+          .get();
+      bool isCoopAdmin = coopAdminSnapshot.exists;
+
       String? profileImageBase64 = appUser.profileImage;
       Uint8List? decodedImage;
 
@@ -103,7 +110,7 @@ class _HomePageState extends State<HomePage> {
         }
       } catch (e) {
         logger.e('Error decoding profile image: $e');
-        decodedImage = null; // Ensure decodedImage is null if decoding fails
+        decodedImage = null;
       }
 
       if (mounted) {
@@ -112,7 +119,9 @@ class _HomePageState extends State<HomePage> {
           _profileImageBytes = decodedImage;
           _isMainAdmin = isAdmin;
           _isMarketOfficer = isMarketOfficer;
-          logger.i('Fetched data - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsMarketOfficer: $_isMarketOfficer');
+          _isCoopAdmin = isCoopAdmin;
+          logger.i(
+              'Fetched data - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsMarketOfficer: $_isMarketOfficer, IsCoopAdmin: $_isCoopAdmin');
         });
       }
     } catch (e) {
@@ -122,7 +131,6 @@ class _HomePageState extends State<HomePage> {
           SnackBar(content: Text('Error fetching user data: $e')),
         );
       }
-      // Do not redirect to login here; let the listener handle it
     }
   }
 
@@ -223,6 +231,29 @@ class _HomePageState extends State<HomePage> {
         });
       }
     });
+
+    FirebaseFirestore.instance
+        .collection('CoopAdmins')
+        .doc(_userId)
+        .snapshots()
+        .listen((coopAdminSnapshot) {
+      if (mounted) {
+        bool newCoopAdminStatus = coopAdminSnapshot.exists;
+        if (newCoopAdminStatus != _isCoopAdmin) {
+          setState(() {
+            _isCoopAdmin = newCoopAdminStatus;
+            logger.i('Co-op Admin status updated: $_isCoopAdmin');
+          });
+        }
+      }
+    }, onError: (e) {
+      logger.e('Error listening to CoopAdmins: $e');
+      if (mounted) {
+        setState(() {
+          _isCoopAdmin = false;
+        });
+      }
+    });
   }
 
   void _redirectToLogin(String message) {
@@ -311,6 +342,8 @@ class _HomePageState extends State<HomePage> {
   Widget _buildRoleBasedButtons() {
     if (_isMainAdmin) {
       return _buildAdminButton();
+    } else if (_isCoopAdmin) {
+      return _buildCoopAdminButton();
     } else if (_isMarketOfficer) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -343,6 +376,27 @@ class _HomePageState extends State<HomePage> {
         },
         icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
         label: const Text('Admin Management', style: TextStyle(color: Colors.white)),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          backgroundColor: Colors.brown[700],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCoopAdminButton() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          // Placeholder for Co-op Admin screen navigation
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Co-op Admin Management Coming Soon!')),
+          );
+        },
+        icon: const Icon(Icons.group, color: Colors.white),
+        label: const Text('Co-op Admin Management', style: TextStyle(color: Colors.white)),
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           backgroundColor: Colors.brown[700],

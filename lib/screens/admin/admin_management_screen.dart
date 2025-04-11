@@ -33,6 +33,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
           'Users',
           'Admins',
           'MarketOfficers',
+          'CoopAdmins', // Added new collection
           'market_prices',
           'coffee_disease_interventions',
           'coffee_pest_interventions',
@@ -50,10 +51,24 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
     try {
       final userDoc = await FirebaseFirestore.instance.collection('Users').doc(uid).get();
       if (!userDoc.exists) throw 'User not found';
-      await FirebaseFirestore.instance.collection(collection).doc(uid).set({'added': true});
-      _logActivity('Assigned $collection role to $uid');
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+      final roleData = {
+        'fullName': userData['fullName'] ?? '',
+        'county': userData['county'] ?? '',
+        'constituency': userData['constituency'] ?? '',
+        'ward': userData['ward'] ?? '',
+        'phoneNumber': userData['phoneNumber'] ?? '',
+        'email': userData['email'] ?? '',
+        'isDisabled': userData['isDisabled'] ?? false,
+        'added': true,
+      };
+
+      await FirebaseFirestore.instance.collection(collection).doc(uid).set(roleData);
+      _logActivity('Assigned $collection role to $uid (User: ${userData['fullName']})');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${collection.replaceAll('s', '')} role assigned successfully!')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('${collection.replaceAll('s', '')} role assigned successfully!')));
       }
     } catch (e) {
       if (mounted) {
@@ -182,8 +197,10 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
       children: [
         _buildOptionCard('Assign User Role', Icons.person_add, () => _showRoleSelectionDialog()),
         _buildOptionCard('Manage Users', Icons.people, () => _showManageUsersScreen()),
-        _buildOptionCard('Manage Pests', Icons.bug_report, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPestManagementPage()))),
-        _buildOptionCard('Filter Users', Icons.filter_list, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FilterUsersScreen()))),
+        _buildOptionCard('Manage Pests', Icons.bug_report,
+            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPestManagementPage()))),
+        _buildOptionCard('Filter Users', Icons.filter_list,
+            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FilterUsersScreen()))),
       ],
     );
   }
@@ -243,6 +260,19 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
               ),
               child: const Text('Assign Market Officer Role'),
             ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showAssignRoleDialog('CoopAdmins');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.brown[700],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Assign Co-op Admin Role'),
+            ),
           ],
         ),
         actions: [
@@ -259,7 +289,8 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Assign ${collection.replaceAll('s', '')} Role', style: const TextStyle(fontWeight: FontWeight.bold)),
+        title:
+            Text('Assign ${collection.replaceAll('s', '')} Role', style: const TextStyle(fontWeight: FontWeight.bold)),
         content: Row(
           children: [
             Expanded(
