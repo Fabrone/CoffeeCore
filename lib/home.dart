@@ -12,8 +12,6 @@ import 'package:coffeecore/screens/manuals_screen.dart';
 import 'package:coffeecore/screens/pests_diseases_home.dart';
 import 'package:coffeecore/screens/user_profile.dart';
 import 'package:coffeecore/screens/weather_screen.dart';
-//import 'package:coffeecore/screens/market_prices.dart';
-//import 'package:coffeecore/screens/market_officer_screen.dart';
 import 'package:coffeecore/authentication/login.dart';
 import 'package:coffeecore/settings/notifications_settings_screen.dart';
 import 'package:coffeecore/settings/settings_screen.dart';
@@ -35,9 +33,9 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? _userData;
   Uint8List? _profileImageBytes;
   bool _isMainAdmin = false;
-  bool _isMarketOfficer = false;
   bool _isCoopAdmin = false;
   bool _isMarketManager = false;
+  bool _isCoopRegistered = false;
   String? _cooperativeName;
   final logger = Logger(printer: PrettyPrinter());
   String? _userId;
@@ -75,6 +73,7 @@ class _HomePageState extends State<HomePage> {
     if (_userId == null) return;
 
     try {
+      // Fetch user data
       DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
           .collection('Users')
           .doc(_userId)
@@ -86,58 +85,54 @@ class _HomePageState extends State<HomePage> {
       }
       AppUser appUser = AppUser.fromFirestore(userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
 
+      // Check Admin role
       DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
           .collection('Admins')
           .doc(_userId)
           .get();
       bool isAdmin = adminSnapshot.exists;
 
-      DocumentSnapshot marketOfficerSnapshot = await FirebaseFirestore.instance
-          .collection('MarketOfficers')
-          .doc(_userId)
-          .get();
-      bool isMarketOfficer = marketOfficerSnapshot.exists;
-
+      // Check Coop Admin role
       DocumentSnapshot coopAdminSnapshot = await FirebaseFirestore.instance
           .collection('CoopAdmins')
           .doc(_userId)
           .get();
       bool isCoopAdmin = coopAdminSnapshot.exists;
+      String? coopAdminCoop = isCoopAdmin ? coopAdminSnapshot['cooperative']?.replaceAll('_', ' ') : null;
 
+      // Check Market Manager and cooperative registration
       bool isMarketManager = false;
+      bool isCoopRegistered = false;
       String? cooperativeName;
       QuerySnapshot coopSnapshot = await FirebaseFirestore.instance.collection('cooperatives').get();
       for (var coopDoc in coopSnapshot.docs) {
         String coopId = coopDoc.id;
+        String formattedCoopName = coopId.replaceAll('_', ' ');
         try {
+          // Check if user is registered in cooperative
           DocumentSnapshot userDoc = await FirebaseFirestore.instance
-              .collection(coopId)
-              .doc('users')
-              .collection('users')
+              .collection('${coopId}_users')
               .doc(_userId)
               .get();
           if (userDoc.exists) {
-            try {
-              DocumentSnapshot managerSnapshot = await FirebaseFirestore.instance
-                  .collection(coopId)
-                  .doc('marketmanagers')
-                  .collection('marketmanagers')
-                  .doc(_userId)
-                  .get();
-              if (managerSnapshot.exists) {
-                isMarketManager = true;
-                cooperativeName = coopId.replaceAll('_', ' ');
-              }
-            } catch (e) {
-              logger.i('Not a Market Manager in $coopId: $e');
+            isCoopRegistered = true;
+            cooperativeName = formattedCoopName;
+            // Check if user is a Market Manager
+            DocumentSnapshot managerSnapshot = await FirebaseFirestore.instance
+                .collection('${coopId}_marketmanagers')
+                .doc(_userId)
+                .get();
+            if (managerSnapshot.exists) {
+              isMarketManager = true;
             }
-            break;
+            break; // Stop after finding the user's cooperative
           }
         } catch (e) {
-          logger.e('Error checking cooperative $coopId/users/users: $e');
+          logger.e('Error checking cooperative $coopId: $e');
         }
       }
 
+      // Decode profile image
       String? profileImageBase64 = appUser.profileImage;
       Uint8List? decodedImage;
       try {
@@ -153,11 +148,12 @@ class _HomePageState extends State<HomePage> {
           _userData = appUser.toMap();
           _profileImageBytes = decodedImage;
           _isMainAdmin = isAdmin;
-          _isMarketOfficer = isMarketOfficer;
           _isCoopAdmin = isCoopAdmin;
           _isMarketManager = isMarketManager;
-          _cooperativeName = cooperativeName;
-          logger.i('Fetched data - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsMarketOfficer: $_isMarketOfficer, IsCoopAdmin: $_isCoopAdmin, IsMarketManager: $_isMarketManager, Cooperative: $_cooperativeName');
+          _isCoopRegistered = isCoopRegistered;
+          _cooperativeName = isCoopAdmin ? coopAdminCoop : (isMarketManager ? cooperativeName : null);
+          logger.i(
+              'Fetched data - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsCoopAdmin: $_isCoopAdmin, IsMarketManager: $_isMarketManager, IsCoopRegistered: $_isCoopRegistered, Cooperative: $_cooperativeName');
         });
       }
     } catch (e) {
@@ -165,7 +161,7 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         String errorMsg = 'Error fetching user data: $e';
         if (e.toString().contains('permission-denied')) {
-          errorMsg += ' (Collection: Unknown - check logs)';
+          errorMsg += ' (Check Firestore rules)';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMsg)),
@@ -195,6 +191,7 @@ class _HomePageState extends State<HomePage> {
   void _listenToUserAndRoleStatus() {
     if (_userId == null) return;
 
+    // Listen to user data
     FirebaseFirestore.instance
         .collection('Users')
         .doc(_userId)
@@ -206,49 +203,71 @@ class _HomePageState extends State<HomePage> {
         AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
         setState(() {
           _userData = appUser.toMap();
-          _profileImageBytes = base64Decode(appUser.profileImage ?? '');
+          _profileImageBytes = appUser.profileImage != null && appUser.profileImage!.isNotEmpty
+              ? base64Decode(appUser.profileImage!)
+              : null;
         });
       }
     });
 
+    // Listen to Admin role
     FirebaseFirestore.instance
         .collection('Admins')
         .doc(_userId)
         .snapshots()
         .listen((snapshot) => setState(() => _isMainAdmin = snapshot.exists));
 
-    FirebaseFirestore.instance
-        .collection('MarketOfficers')
-        .doc(_userId)
-        .snapshots()
-        .listen((snapshot) => setState(() => _isMarketOfficer = snapshot.exists));
-
+    // Listen to Coop Admin role
     FirebaseFirestore.instance
         .collection('CoopAdmins')
         .doc(_userId)
         .snapshots()
-        .listen((snapshot) => setState(() => _isCoopAdmin = snapshot.exists));
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _isCoopAdmin = snapshot.exists;
+          _cooperativeName = snapshot.exists && snapshot.data()?['cooperative'] != null
+              ? snapshot['cooperative'].replaceAll('_', ' ')
+              : _cooperativeName;
+        });
+      }
+    });
 
-    FirebaseFirestore.instance
-        .collection('cooperatives')
-        .snapshots()
-        .listen((coopSnapshot) {
+    // Listen to Market Manager and cooperative registration
+    FirebaseFirestore.instance.collection('cooperatives').snapshots().listen((coopSnapshot) {
       for (var coopDoc in coopSnapshot.docs) {
         String coopId = coopDoc.id;
+        // Check Market Manager status
         FirebaseFirestore.instance
-            .collection(coopId)
-            .doc('marketmanagers')
-            .collection('marketmanagers')
+            .collection('${coopId}_marketmanagers')
             .doc(_userId)
             .snapshots()
             .listen((managerSnapshot) {
           if (mounted) {
             setState(() {
               _isMarketManager = managerSnapshot.exists;
-              _cooperativeName = _isMarketManager ? coopId.replaceAll('_', ' ') : null;
+              if (_isMarketManager) {
+                _cooperativeName = coopId.replaceAll('_', ' ');
+              }
             });
           }
         }, onError: (e) => logger.i('Not a Market Manager in $coopId: $e'));
+
+        // Check cooperative registration
+        FirebaseFirestore.instance
+            .collection('${coopId}_users')
+            .doc(_userId)
+            .snapshots()
+            .listen((userSnapshot) {
+          if (mounted) {
+            setState(() {
+              _isCoopRegistered = userSnapshot.exists;
+              if (userSnapshot.exists && !_isMarketManager && !_isCoopAdmin) {
+                _cooperativeName = coopId.replaceAll('_', ' ');
+              }
+            });
+          }
+        }, onError: (e) => logger.i('Not registered in $coopId: $e'));
       }
     });
   }
@@ -285,9 +304,9 @@ class _HomePageState extends State<HomePage> {
 
   String _getRoleSubtitle() {
     if (_isMainAdmin) return 'Admin';
-    if (_isCoopAdmin) return 'Co-op Admin';
+    if (_isCoopAdmin) return 'Co-op Admin ($_cooperativeName)';
     if (_isMarketManager) return 'Market Manager ($_cooperativeName)';
-    if (_isMarketOfficer) return 'Market Officer';
+    if (_isCoopRegistered) return 'User ($_cooperativeName)';
     return 'User';
   }
 
@@ -299,7 +318,7 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(MediaQuery.of(context).size.height * 0.10), // Increased height
+        preferredSize: Size.fromHeight(MediaQuery.of(context).size.height * 0.10),
         child: AppBar(
           title: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -317,7 +336,7 @@ class _HomePageState extends State<HomePage> {
                 _getRoleSubtitle(),
                 style: const TextStyle(
                   color: Colors.white70,
-                  fontSize: 14, // Smaller text size
+                  fontSize: 14,
                   fontWeight: FontWeight.normal,
                 ),
               ),
@@ -369,19 +388,8 @@ class _HomePageState extends State<HomePage> {
       return _buildAdminButton();
     } else if (_isCoopAdmin) {
       return _buildCoopAdminButton();
-    } else if (_isMarketManager || _isMarketOfficer) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Builder(
-            builder: (context) => _buildMenuButton(context),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 16.0),
-            child: _buildMarketOfficerButton(),
-          ),
-        ],
-      );
+    } else if (_isMarketManager) {
+      return _buildMarketManagerButton();
     } else {
       return Builder(
         builder: (context) => _buildMenuButton(context),
@@ -431,6 +439,27 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildMarketManagerButton() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const MarketManagerScreen()),
+          );
+        },
+        icon: const Icon(Icons.price_change, color: Colors.white),
+        label: const Text('Set Prices', style: TextStyle(color: Colors.white)),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          backgroundColor: Colors.brown[700],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMenuButton(BuildContext scaffoldContext) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -449,27 +478,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildMarketOfficerButton() {
-    return ElevatedButton.icon(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const MarketManagerScreen()),
-        );
-      },
-      icon: const Icon(Icons.price_change, color: Colors.white),
-      label: const Text('Set Prices', style: TextStyle(color: Colors.white)),
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        backgroundColor: Colors.brown[700],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
   Widget _buildCarousel() {
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.35, 
+      height: MediaQuery.of(context).size.height * 0.35,
       child: CarouselSlider(
         options: CarouselOptions(
           height: MediaQuery.of(context).size.height * 0.35,

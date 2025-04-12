@@ -28,23 +28,39 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
   }
 
   Future<void> _checkCoopName() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? storedCoopName = prefs.getString('cooperative_name_$_userId');
-    if (storedCoopName != null) {
+    try {
+      DocumentSnapshot coopAdminDoc = await FirebaseFirestore.instance
+          .collection('CoopAdmins')
+          .doc(_userId)
+          .get();
+      if (!coopAdminDoc.exists || !coopAdminDoc.data().toString().contains('cooperative')) {
+        if (mounted) {
+          _showCreateCoopDialog();
+        }
+        return;
+      }
+      String assignedCoop = coopAdminDoc['cooperative'].replaceAll('_', ' ');
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cooperative_name_$_userId', assignedCoop);
       setState(() {
-        _cooperativeName = storedCoopName;
+        _cooperativeName = assignedCoop;
       });
-    } else {
-      _showCoopNameDialog();
+    } catch (e) {
+      logger.e('Error checking cooperative name: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading cooperative: $e')),
+        );
+      }
     }
   }
 
-  Future<void> _showCoopNameDialog() async {
+  Future<void> _showCreateCoopDialog() async {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Enter Cooperative Name', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Create Cooperative', style: TextStyle(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: _coopNameController,
           decoration: InputDecoration(
@@ -62,111 +78,44 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
                 );
                 return;
               }
-              _saveCoopName(_coopNameController.text.trim());
+              _createCooperative(_coopNameController.text.trim());
               Navigator.pop(context);
             },
-            child: const Text('Save'),
+            child: const Text('Create'),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _saveCoopName(String coopName) async {
+  Future<void> _createCooperative(String coopName) async {
     try {
       String formattedCoopName = coopName.replaceAll(' ', '_');
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('cooperative_name_$_userId', coopName);
-      
+
       // Create the cooperative document
       await FirebaseFirestore.instance.collection('cooperatives').doc(formattedCoopName).set({
         'name': coopName,
         'createdBy': _userId,
         'timestamp': Timestamp.now(),
       });
-      
-      // Initialize subcollections with a dummy document to ensure they exist
-      await FirebaseFirestore.instance
-          .collection(formattedCoopName)
-          .doc('users')
-          .set({'initialized': true});
-      await FirebaseFirestore.instance
-          .collection(formattedCoopName)
-          .doc('marketmanagers')
-          .set({'initialized': true});
-      
+
+      // Update CoopAdmins with the cooperative
+      await FirebaseFirestore.instance.collection('CoopAdmins').doc(_userId).set({
+        'cooperative': formattedCoopName,
+        'uid': _userId,
+      }, SetOptions(merge: true));
+
       setState(() {
         _cooperativeName = coopName;
       });
-      logger.i('Cooperative $coopName created for user $_userId with subcollections');
+      logger.i('Cooperative $coopName created for user $_userId');
     } catch (e) {
-      logger.e('Error saving cooperative name: $e');
+      logger.e('Error creating cooperative: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving cooperative name: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _editCoopName() async {
-    _coopNameController.text = _cooperativeName ?? '';
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Cooperative Name', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: TextField(
-          controller: _coopNameController,
-          decoration: InputDecoration(
-            labelText: 'Cooperative Name',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (_coopNameController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a cooperative name')),
-                );
-                return;
-              }
-              _updateCoopName(_coopNameController.text.trim());
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _updateCoopName(String newCoopName) async {
-    try {
-      String oldFormattedName = _cooperativeName!.replaceAll(' ', '_');
-      String newFormattedName = newCoopName.replaceAll(' ', '_');
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('cooperative_name_$_userId', newCoopName);
-      await FirebaseFirestore.instance.collection('cooperatives').doc(newFormattedName).set({
-        'name': newCoopName,
-        'createdBy': _userId,
-        'timestamp': Timestamp.now(),
-      });
-      // Optionally, delete old cooperative data or transfer it
-      await FirebaseFirestore.instance.collection('cooperatives').doc(oldFormattedName).delete();
-      setState(() {
-        _cooperativeName = newCoopName;
-      });
-      logger.i('Cooperative name updated to $newCoopName for user $_userId');
-    } catch (e) {
-      logger.e('Error updating cooperative name: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating cooperative name: $e')),
+          SnackBar(content: Text('Error creating cooperative: $e')),
         );
       }
     }
@@ -175,14 +124,18 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
   Future<void> _assignMarketManager(String uid) async {
     if (_cooperativeName == null) return;
     try {
-      final userDoc = await FirebaseFirestore.instance.collection('Users').doc(uid).get();
-      if (!userDoc.exists) throw 'User not found';
-      final userData = userDoc.data() as Map<String, dynamic>;
       String formattedCoopName = _cooperativeName!.replaceAll(' ', '_');
+      // Verify user exists in {coopName}_users
+      final userDoc = await FirebaseFirestore.instance
+          .collection('${formattedCoopName}_users')
+          .doc(uid)
+          .get();
+      if (!userDoc.exists) throw 'User not found in this cooperative';
+      final userData = userDoc.data() as Map<String, dynamic>;
+
+      // Assign to {coopName}_marketmanagers
       await FirebaseFirestore.instance
-          .collection(formattedCoopName)
-          .doc('marketmanagers')
-          .collection('marketmanagers')
+          .collection('${formattedCoopName}_marketmanagers')
           .doc(uid)
           .set({
         'fullName': userData['fullName'] ?? '',
@@ -200,6 +153,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
         );
       }
     } catch (e) {
+      logger.e('Error assigning Market Manager: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error assigning Market Manager: $e')),
@@ -266,10 +220,6 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
                             textAlign: TextAlign.center,
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.brown),
-                          onPressed: _editCoopName,
-                        ),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -297,13 +247,18 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
             const SizedBox(height: 10),
             ..._allCollections.map((collection) => StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection(formattedCoopName)
-                      .doc(collection)
-                      .collection(collection)
+                      .collection('${formattedCoopName}_$collection')
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const CircularProgressIndicator();
+                    }
+                    if (snapshot.hasError) {
+                      logger.e('Error in collection stats for $collection: ${snapshot.error}');
+                      return ListTile(
+                        title: Text(collection, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        trailing: const Text('Error', style: TextStyle(fontSize: 16, color: Colors.red)),
+                      );
                     }
                     final count = snapshot.data?.docs.length ?? 0;
                     return ListTile(
@@ -416,16 +371,13 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
           width: double.maxFinite,
           height: 300,
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection(formattedCoopName)
-                .doc('users')
-                .collection('users')
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('${formattedCoopName}_users').snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
+                logger.e('Error in user list dialog: ${snapshot.error}');
                 return Text('Error: ${snapshot.error}');
               }
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -474,22 +426,18 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
             foregroundColor: Colors.white,
           ),
           body: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection(formattedCoopName)
-                .doc('users')
-                .collection('users')
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('${formattedCoopName}_users').snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
+                logger.e('Error in manage users: ${snapshot.error}');
                 return Center(child: Text('Error: ${snapshot.error}'));
               }
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                 return const Center(child: Text('No users found in this cooperative.'));
               }
-
               final users = snapshot.data!.docs;
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -560,12 +508,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
     if (_cooperativeName == null) return;
     try {
       String formattedCoopName = _cooperativeName!.replaceAll(' ', '_');
-      await FirebaseFirestore.instance
-          .collection(formattedCoopName)
-          .doc('users')
-          .collection('users')
-          .doc(uid)
-          .delete();
+      await FirebaseFirestore.instance.collection('${formattedCoopName}_users').doc(uid).delete();
       _logActivity('Removed user $uid from cooperative $_cooperativeName');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -573,6 +516,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
         );
       }
     } catch (e) {
+      logger.e('Error removing user: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error removing user: $e')),
@@ -586,7 +530,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => FilterUsersScreen(cooperativeName: _cooperativeName!), // Named parameter
+        builder: (context) => FilterUsersScreen(cooperativeName: _cooperativeName!),
       ),
     );
   }

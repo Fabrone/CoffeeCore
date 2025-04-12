@@ -36,11 +36,22 @@ class CoffeePricesWidgetState extends State<CoffeePricesWidget> {
 
   Future<bool> _checkIfUserInCooperative() async {
     if (_userId == null) return false;
-    QuerySnapshot snapshot = await FirebaseFirestore.instance
-        .collectionGroup('users')
-        .where('uid', isEqualTo: _userId)
-        .get();
-    return snapshot.docs.isNotEmpty;
+    final coopDocs = await FirebaseFirestore.instance.collection('cooperatives').get();
+    for (var doc in coopDocs.docs) {
+      String formattedCoopName = doc['name'].replaceAll(' ', '_');
+      final userDoc = await FirebaseFirestore.instance
+          .collection('${formattedCoopName}_users')
+          .doc(_userId)
+          .get();
+      if (userDoc.exists) {
+        setState(() {
+          _selectedCooperative = doc['name'];
+          _isCoopSelected = true;
+        });
+        return true;
+      }
+    }
+    return false;
   }
 
   String? _userId;
@@ -49,25 +60,7 @@ class CoffeePricesWidgetState extends State<CoffeePricesWidget> {
   void initState() {
     super.initState();
     _userId = FirebaseAuth.instance.currentUser?.uid;
-    _checkIfUserInCooperative().then((isInCoop) {
-      setState(() {
-        _isCoopSelected = isInCoop;
-        if (isInCoop) {
-          FirebaseFirestore.instance
-              .collectionGroup('users')
-              .where('uid', isEqualTo: _userId)
-              .get()
-              .then((snapshot) {
-            if (snapshot.docs.isNotEmpty) {
-              String coopName = snapshot.docs.first.reference.parent.parent!.id.replaceAll('_', ' ');
-              setState(() {
-                _selectedCooperative = coopName;
-              });
-            }
-          });
-        }
-      });
-    });
+    _checkIfUserInCooperative();
   }
 
   Future<void> _registerUserToCooperative(String cooperative) async {
@@ -80,19 +73,8 @@ class CoffeePricesWidgetState extends State<CoffeePricesWidget> {
       if (!userDoc.exists) throw 'User not found';
       final userData = userDoc.data() as Map<String, dynamic>;
       String formattedCoopName = cooperative.replaceAll(' ', '_');
-      
-      // Ensure the users parent document exists
-      await FirebaseFirestore.instance
-          .collection(formattedCoopName)
-          .doc('users')
-          .set({'initialized': true}, SetOptions(merge: true));
-      
-      await FirebaseFirestore.instance
-          .collection(formattedCoopName)
-          .doc('users')
-          .collection('users')
-          .doc(_userId)
-          .set({
+
+      await FirebaseFirestore.instance.collection('${formattedCoopName}_users').doc(_userId).set({
         'fullName': userData['fullName'] ?? '',
         'county': userData['county'] ?? '',
         'constituency': userData['constituency'] ?? '',
@@ -135,6 +117,7 @@ class CoffeePricesWidgetState extends State<CoffeePricesWidget> {
         setState(() => _isLoading = false);
       }
     } catch (e) {
+      logger.e('Error fetching price: $e');
       _showLogger('Error fetching price: $e');
       setState(() => _isLoading = false);
     }

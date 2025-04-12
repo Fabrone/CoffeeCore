@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 
 class FilterUsersScreen extends StatefulWidget {
-  final String cooperativeName; 
+  final String cooperativeName;
 
   const FilterUsersScreen({super.key, required this.cooperativeName});
 
@@ -13,6 +14,7 @@ class FilterUsersScreen extends StatefulWidget {
 class _FilterUsersScreenState extends State<FilterUsersScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  final logger = Logger(printer: PrettyPrinter());
 
   @override
   void dispose() {
@@ -49,16 +51,13 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection(formattedCoopName)
-                  .doc('users')
-                  .collection('users')
-                  .snapshots(),
+              stream: FirebaseFirestore.instance.collection('${formattedCoopName}_users').snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
+                  logger.e('Error in filter users: ${snapshot.error}');
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
