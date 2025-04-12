@@ -1,3 +1,6 @@
+import 'package:coffeecore/screens/Cooperative%20Section/coffee_prices.dart';
+import 'package:coffeecore/screens/Cooperative%20Section/coop_admin_management_screen.dart';
+import 'package:coffeecore/screens/Cooperative%20Section/market_manager_screen.dart';
 import 'package:coffeecore/screens/Farm%20Management/coffee_management_screen.dart';
 import 'package:coffeecore/screens/Field%20Data/coffee_soil_home_page.dart';
 import 'package:coffeecore/screens/admin/admin_management_screen.dart';
@@ -9,8 +12,8 @@ import 'package:coffeecore/screens/manuals_screen.dart';
 import 'package:coffeecore/screens/pests_diseases_home.dart';
 import 'package:coffeecore/screens/user_profile.dart';
 import 'package:coffeecore/screens/weather_screen.dart';
-import 'package:coffeecore/screens/market_prices.dart';
-import 'package:coffeecore/screens/market_officer_screen.dart';
+//import 'package:coffeecore/screens/market_prices.dart';
+//import 'package:coffeecore/screens/market_officer_screen.dart';
 import 'package:coffeecore/authentication/login.dart';
 import 'package:coffeecore/settings/notifications_settings_screen.dart';
 import 'package:coffeecore/settings/settings_screen.dart';
@@ -33,7 +36,9 @@ class _HomePageState extends State<HomePage> {
   Uint8List? _profileImageBytes;
   bool _isMainAdmin = false;
   bool _isMarketOfficer = false;
-  bool _isCoopAdmin = false; // New state for Co-op Admin
+  bool _isCoopAdmin = false;
+  bool _isMarketManager = false;
+  String? _cooperativeName;
   final logger = Logger(printer: PrettyPrinter());
   String? _userId;
 
@@ -74,13 +79,11 @@ class _HomePageState extends State<HomePage> {
           .collection('Users')
           .doc(_userId)
           .get();
-
       if (!userSnapshot.exists) {
         logger.w('User document not found in Users collection for UID: $_userId');
         _redirectToLogin('User account not found. Please log in again.');
         return;
       }
-
       AppUser appUser = AppUser.fromFirestore(userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
 
       DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
@@ -101,16 +104,48 @@ class _HomePageState extends State<HomePage> {
           .get();
       bool isCoopAdmin = coopAdminSnapshot.exists;
 
+      bool isMarketManager = false;
+      String? cooperativeName;
+      QuerySnapshot coopSnapshot = await FirebaseFirestore.instance.collection('cooperatives').get();
+      for (var coopDoc in coopSnapshot.docs) {
+        String coopId = coopDoc.id;
+        try {
+          DocumentSnapshot userDoc = await FirebaseFirestore.instance
+              .collection(coopId)
+              .doc('users')
+              .collection('users')
+              .doc(_userId)
+              .get();
+          if (userDoc.exists) {
+            try {
+              DocumentSnapshot managerSnapshot = await FirebaseFirestore.instance
+                  .collection(coopId)
+                  .doc('marketmanagers')
+                  .collection('marketmanagers')
+                  .doc(_userId)
+                  .get();
+              if (managerSnapshot.exists) {
+                isMarketManager = true;
+                cooperativeName = coopId.replaceAll('_', ' ');
+              }
+            } catch (e) {
+              logger.i('Not a Market Manager in $coopId: $e');
+            }
+            break;
+          }
+        } catch (e) {
+          logger.e('Error checking cooperative $coopId/users/users: $e');
+        }
+      }
+
       String? profileImageBase64 = appUser.profileImage;
       Uint8List? decodedImage;
-
       try {
         if (profileImageBase64 != null && profileImageBase64.isNotEmpty) {
           decodedImage = base64Decode(profileImageBase64);
         }
       } catch (e) {
         logger.e('Error decoding profile image: $e');
-        decodedImage = null;
       }
 
       if (mounted) {
@@ -120,15 +155,20 @@ class _HomePageState extends State<HomePage> {
           _isMainAdmin = isAdmin;
           _isMarketOfficer = isMarketOfficer;
           _isCoopAdmin = isCoopAdmin;
-          logger.i(
-              'Fetched data - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsMarketOfficer: $_isMarketOfficer, IsCoopAdmin: $_isCoopAdmin');
+          _isMarketManager = isMarketManager;
+          _cooperativeName = cooperativeName;
+          logger.i('Fetched data - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsMarketOfficer: $_isMarketOfficer, IsCoopAdmin: $_isCoopAdmin, IsMarketManager: $_isMarketManager, Cooperative: $_cooperativeName');
         });
       }
     } catch (e) {
       logger.e('Error fetching user data: $e');
       if (mounted) {
+        String errorMsg = 'Error fetching user data: $e';
+        if (e.toString().contains('permission-denied')) {
+          errorMsg += ' (Collection: Unknown - check logs)';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching user data: $e')),
+          SnackBar(content: Text(errorMsg)),
         );
       }
     }
@@ -161,97 +201,54 @@ class _HomePageState extends State<HomePage> {
         .snapshots()
         .listen((userSnapshot) {
       if (!userSnapshot.exists) {
-        logger.w('User document deleted from Users collection for UID: $_userId');
-        _redirectToLogin('Your account has been removed. Please log in again.');
+        _redirectToLogin('Your account has been removed.');
       } else if (mounted) {
         AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
-        String? profileImageBase64 = appUser.profileImage;
-        Uint8List? decodedImage;
-        try {
-          if (profileImageBase64 != null && profileImageBase64.isNotEmpty) {
-            decodedImage = base64Decode(profileImageBase64);
-          }
-        } catch (e) {
-          logger.e('Error decoding profile image in listener: $e');
-          decodedImage = null;
-        }
         setState(() {
           _userData = appUser.toMap();
-          _profileImageBytes = decodedImage;
-          logger.i('User data updated: $_userData');
+          _profileImageBytes = base64Decode(appUser.profileImage ?? '');
         });
       }
-    }, onError: (e) {
-      logger.e('Error listening to Users: $e');
-      _redirectToLogin('Error syncing user data. Please log in again.');
     });
 
     FirebaseFirestore.instance
         .collection('Admins')
         .doc(_userId)
         .snapshots()
-        .listen((adminSnapshot) {
-      if (mounted) {
-        bool newAdminStatus = adminSnapshot.exists;
-        if (newAdminStatus != _isMainAdmin) {
-          setState(() {
-            _isMainAdmin = newAdminStatus;
-            logger.i('Admin status updated: $_isMainAdmin');
-          });
-        }
-      }
-    }, onError: (e) {
-      logger.e('Error listening to Admins: $e');
-      if (mounted) {
-        setState(() {
-          _isMainAdmin = false;
-        });
-      }
-    });
+        .listen((snapshot) => setState(() => _isMainAdmin = snapshot.exists));
 
     FirebaseFirestore.instance
         .collection('MarketOfficers')
         .doc(_userId)
         .snapshots()
-        .listen((marketOfficerSnapshot) {
-      if (mounted) {
-        bool newMarketOfficerStatus = marketOfficerSnapshot.exists;
-        if (newMarketOfficerStatus != _isMarketOfficer) {
-          setState(() {
-            _isMarketOfficer = newMarketOfficerStatus;
-            logger.i('Market Officer status updated: $_isMarketOfficer');
-          });
-        }
-      }
-    }, onError: (e) {
-      logger.e('Error listening to MarketOfficers: $e');
-      if (mounted) {
-        setState(() {
-          _isMarketOfficer = false;
-        });
-      }
-    });
+        .listen((snapshot) => setState(() => _isMarketOfficer = snapshot.exists));
 
     FirebaseFirestore.instance
         .collection('CoopAdmins')
         .doc(_userId)
         .snapshots()
-        .listen((coopAdminSnapshot) {
-      if (mounted) {
-        bool newCoopAdminStatus = coopAdminSnapshot.exists;
-        if (newCoopAdminStatus != _isCoopAdmin) {
-          setState(() {
-            _isCoopAdmin = newCoopAdminStatus;
-            logger.i('Co-op Admin status updated: $_isCoopAdmin');
-          });
-        }
-      }
-    }, onError: (e) {
-      logger.e('Error listening to CoopAdmins: $e');
-      if (mounted) {
-        setState(() {
-          _isCoopAdmin = false;
-        });
+        .listen((snapshot) => setState(() => _isCoopAdmin = snapshot.exists));
+
+    FirebaseFirestore.instance
+        .collection('cooperatives')
+        .snapshots()
+        .listen((coopSnapshot) {
+      for (var coopDoc in coopSnapshot.docs) {
+        String coopId = coopDoc.id;
+        FirebaseFirestore.instance
+            .collection(coopId)
+            .doc('marketmanagers')
+            .collection('marketmanagers')
+            .doc(_userId)
+            .snapshots()
+            .listen((managerSnapshot) {
+          if (mounted) {
+            setState(() {
+              _isMarketManager = managerSnapshot.exists;
+              _cooperativeName = _isMarketManager ? coopId.replaceAll('_', ' ') : null;
+            });
+          }
+        }, onError: (e) => logger.i('Not a Market Manager in $coopId: $e'));
       }
     });
   }
@@ -286,6 +283,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String _getRoleSubtitle() {
+    if (_isMainAdmin) return 'Admin';
+    if (_isCoopAdmin) return 'Co-op Admin';
+    if (_isMarketManager) return 'Market Manager ($_cooperativeName)';
+    if (_isMarketOfficer) return 'Market Officer';
+    return 'User';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_userId == null) {
@@ -294,11 +299,29 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(MediaQuery.of(context).size.height * 0.08),
+        preferredSize: Size.fromHeight(MediaQuery.of(context).size.height * 0.10), // Increased height
         child: AppBar(
-          title: const Text(
-            'CoffeeCore',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          title: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'CoffeeCore',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+              Text(
+                _getRoleSubtitle(),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14, // Smaller text size
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ],
           ),
           backgroundColor: Colors.brown[700],
           leading: Builder(
@@ -329,7 +352,9 @@ class _HomePageState extends State<HomePage> {
         color: Colors.grey[200],
         child: Column(
           children: [
-            _buildCarousel(),
+            Flexible(
+              child: _buildCarousel(),
+            ),
             _buildClickableSections(),
             _buildRoleBasedButtons(),
           ],
@@ -344,7 +369,7 @@ class _HomePageState extends State<HomePage> {
       return _buildAdminButton();
     } else if (_isCoopAdmin) {
       return _buildCoopAdminButton();
-    } else if (_isMarketOfficer) {
+    } else if (_isMarketManager || _isMarketOfficer) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -390,9 +415,9 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.all(16.0),
       child: ElevatedButton.icon(
         onPressed: () {
-          // Placeholder for Co-op Admin screen navigation
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Co-op Admin Management Coming Soon!')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CoopAdminManagementScreen()),
           );
         },
         icon: const Icon(Icons.group, color: Colors.white),
@@ -429,7 +454,7 @@ class _HomePageState extends State<HomePage> {
       onPressed: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const MarketOfficerScreen()),
+          MaterialPageRoute(builder: (context) => const MarketManagerScreen()),
         );
       },
       icon: const Icon(Icons.price_change, color: Colors.white),
@@ -444,10 +469,10 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildCarousel() {
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.4,
+      height: MediaQuery.of(context).size.height * 0.35, 
       child: CarouselSlider(
         options: CarouselOptions(
-          height: MediaQuery.of(context).size.height * 0.4,
+          height: MediaQuery.of(context).size.height * 0.35,
           autoPlay: true,
           enlargeCenterPage: true,
           aspectRatio: 16 / 9,
@@ -503,8 +528,8 @@ class _HomePageState extends State<HomePage> {
           _buildClickableCard('Coffee Farming Tips', Icons.lightbulb, () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => LearnCoffeeFarming()));
           }),
-          _buildClickableCard('Coffee Market Prices', Icons.shopping_cart, () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => MarketPricesWidget()));
+          _buildClickableCard('Coffee Prices', Icons.shopping_cart, () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const CoffeePricesWidget()));
           }),
         ],
       ),
