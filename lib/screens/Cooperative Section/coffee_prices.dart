@@ -27,9 +27,9 @@ class CoffeePricesWidgetState extends State<CoffeePricesWidget> {
 
   Future<List<String>> _fetchVarieties() async {
     if (_selectedCooperative == null) return [];
+    String formattedCoopId = _selectedCooperative!.replaceAll(' ', '_');
     QuerySnapshot snapshot = await FirebaseFirestore.instance
-        .collection('coffee_prices')
-        .where('cooperative', isEqualTo: _selectedCooperative)
+        .collection('${formattedCoopId}_coffeeprices')
         .get();
     return snapshot.docs.map((doc) => doc['variety'] as String).toSet().toList();
   }
@@ -101,13 +101,13 @@ class CoffeePricesWidgetState extends State<CoffeePricesWidget> {
     }
     setState(() => _isLoading = true);
     try {
-      QuerySnapshot snapshot = await FirebaseFirestore.instance
-          .collection('coffee_prices')
-          .where('cooperative', isEqualTo: _selectedCooperative)
-          .where('variety', isEqualTo: _selectedCoffeeVariety)
+      String formattedCoopId = _selectedCooperative!.replaceAll(' ', '_');
+      DocumentSnapshot snapshot = await FirebaseFirestore.instance
+          .collection('${formattedCoopId}_coffeeprices')
+          .doc(_selectedCoffeeVariety)
           .get();
-      if (snapshot.docs.isNotEmpty) {
-        final data = snapshot.docs.first.data() as Map<String, dynamic>;
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
         setState(() {
           _predictedPrice = (data['price'] as num?)?.toDouble() ?? 0.0;
           _isLoading = false;
@@ -190,6 +190,8 @@ class CoffeePricesWidgetState extends State<CoffeePricesWidget> {
                           : (value) {
                               setState(() {
                                 _selectedCooperative = value;
+                                _selectedCoffeeVariety = null; // Reset variety when coop changes
+                                _predictedPrice = null; // Reset price
                               });
                               _registerUserToCooperative(value!);
                             },
@@ -214,34 +216,22 @@ class CoffeePricesWidgetState extends State<CoffeePricesWidget> {
                     if (!varietySnapshot.hasData || varietySnapshot.data!.isEmpty) {
                       return const Text('No varieties available for this cooperative.');
                     }
-                    return StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('coffee_prices')
-                          .where('cooperative', isEqualTo: _selectedCooperative)
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const CircularProgressIndicator();
-                        }
-                        final varieties = snapshot.data!.docs
-                            .map((doc) => doc['variety'] as String)
-                            .toSet()
-                            .toList();
-                        return DropdownButtonFormField<String>(
-                          value: _selectedCoffeeVariety,
-                          items: varieties
-                              .map((variety) => DropdownMenuItem(value: variety, child: Text(variety)))
-                              .toList(),
-                          onChanged: (value) => setState(() => _selectedCoffeeVariety = value),
-                          decoration: InputDecoration(
-                            labelText: 'Select Coffee Variety',
-                            prefixIcon: Icon(Icons.local_cafe, color: coffeeBrown),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                        );
-                      },
+                    return DropdownButtonFormField<String>(
+                      value: _selectedCoffeeVariety,
+                      items: varietySnapshot.data!
+                          .map((variety) => DropdownMenuItem(value: variety, child: Text(variety)))
+                          .toList(),
+                      onChanged: (value) => setState(() {
+                        _selectedCoffeeVariety = value;
+                        _predictedPrice = null; // Reset price when variety changes
+                      }),
+                      decoration: InputDecoration(
+                        labelText: 'Select Coffee Variety',
+                        prefixIcon: Icon(Icons.local_cafe, color: coffeeBrown),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
                     );
                   },
                 ),

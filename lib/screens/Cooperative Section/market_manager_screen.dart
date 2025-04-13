@@ -1,8 +1,6 @@
-// File: lib/screens/market_manager_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:coffeecore/models/coop_market_price.dart';
 import 'package:logger/logger.dart';
 
 class MarketManagerScreen extends StatefulWidget {
@@ -26,23 +24,50 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
     super.initState();
     _fetchCooperativeName();
     _animationController = AnimationController(
-      duration: const Duration(seconds: 5),
+      duration: const Duration(seconds: 10), // Slower for uniform transition
       vsync: this,
     )..repeat();
-    _currencyAnimation = IntTween(begin: 0, end: 4).animate(_animationController);
+    _currencyAnimation = IntTween(begin: 0, end: 8).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
   }
 
   Future<void> _fetchCooperativeName() async {
     String? userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
-    QuerySnapshot snapshot = await FirebaseFirestore.instance
-        .collectionGroup('marketmanagers')
-        .where('uid', isEqualTo: userId)
-        .get();
-    if (snapshot.docs.isNotEmpty) {
-      String coopName = snapshot.docs.first.reference.parent.parent!.id.replaceAll('_', ' ');
+    if (userId == null) {
       setState(() {
-        _cooperativeName = coopName;
+        _feedbackMessage = 'No user logged in';
+      });
+      return;
+    }
+
+    try {
+      QuerySnapshot coopSnapshot = await FirebaseFirestore.instance
+          .collection('cooperatives')
+          .get();
+      for (var coopDoc in coopSnapshot.docs) {
+        String coopId = coopDoc.id;
+        DocumentSnapshot managerDoc = await FirebaseFirestore.instance
+            .collection('${coopId}_marketmanagers')
+            .doc(userId)
+            .get();
+        if (managerDoc.exists) {
+          setState(() {
+            _cooperativeName = coopId.replaceAll('_', ' ');
+          });
+          return;
+        }
+      }
+      setState(() {
+        _feedbackMessage = 'Not registered as a Market Manager';
+      });
+    } catch (e) {
+      logger.e('Error fetching cooperative: $e');
+      setState(() {
+        _feedbackMessage = 'Error loading cooperative: $e';
       });
     }
   }
@@ -111,16 +136,34 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
   }
 
   Widget _buildCurrencyAnimation() {
-    final List<String> currencies = ['\$', '€', '£', 'R', 'Ksh'];
+    final List<String> currencies = [
+      '\$', // USD
+      '€', // EUR
+      '£', // GBP
+      '¥', // JPY
+      '₹', // INR
+      'R', // ZAR
+      'A\$', // AUD
+      'Ksh', // KES
+      '₣', // CHF
+    ];
     return AnimatedBuilder(
       animation: _currencyAnimation,
       builder: (context, child) {
         return Text(
           currencies[_currencyAnimation.value],
           style: TextStyle(
-            fontSize: 40,
-            color: Color.fromRGBO(121, 85, 72, 0.8), // Replaced withOpacity
+            fontSize: 48, // Larger size
+            color: const Color.fromRGBO(121, 85, 72, 1.0),
             fontWeight: FontWeight.bold,
+            fontStyle: FontStyle.italic,
+            shadows: [
+              Shadow(
+                blurRadius: 4.0,
+                color: const Color.fromRGBO(0, 0, 0, 0.3), // Replaced withOpacity
+                offset: const Offset(2.0, 2.0),
+              ),
+            ],
           ),
           textAlign: TextAlign.center,
         );
@@ -145,7 +188,7 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Color.fromRGBO(121, 85, 72, 0.3), // Replaced withOpacity
+                color: const Color.fromRGBO(121, 85, 72, 0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -178,7 +221,14 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
   Future<void> _showAddVarietyDialog(BuildContext context) async {
     final varietyController = TextEditingController();
     final priceController = TextEditingController();
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      setState(() {
+        _feedbackMessage = 'No user logged in';
+      });
+      return;
+    }
 
     final result = await showDialog<String>(
       context: context,
@@ -233,21 +283,28 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
     );
 
     if (result != null && result != 'Fill all fields' && result != 'Invalid price') {
-      String newVariety = result;
-      double price = double.parse(priceController.text);
-      String docId = '${_cooperativeName!.replaceAll(' ', '_')}_$newVariety';
-      final marketPrice = CoopMarketPrice(
-        id: docId,
-        cooperative: _cooperativeName!,
-        variety: newVariety,
-        price: price,
-        updatedBy: user.uid,
-        timestamp: Timestamp.now(),
-      );
-      await FirebaseFirestore.instance.collection('coffee_prices').doc(docId).set(marketPrice.toMap());
-      setState(() {
-        _feedbackMessage = '$newVariety added with price Ksh $price/kg';
-      });
+      try {
+        String newVariety = result;
+        double price = double.parse(priceController.text);
+        String formattedCoopId = _cooperativeName!.replaceAll(' ', '_');
+        await FirebaseFirestore.instance
+            .collection('${formattedCoopId}_coffeeprices')
+            .doc(newVariety)
+            .set({
+          'variety': newVariety,
+          'price': price,
+          'updatedBy': user.uid,
+          'timestamp': Timestamp.now(),
+        });
+        setState(() {
+          _feedbackMessage = '$newVariety added with price Ksh $price/kg';
+        });
+      } catch (e) {
+        logger.e('Error adding variety: $e');
+        setState(() {
+          _feedbackMessage = 'Error adding variety: $e';
+        });
+      }
     } else if (result == 'Fill all fields' || result == 'Invalid price') {
       setState(() {
         _feedbackMessage = result;
@@ -268,10 +325,18 @@ class PriceListScreen extends StatefulWidget {
 class _PriceListScreenState extends State<PriceListScreen> {
   static final Color coffeeBrown = Colors.brown[700]!;
   String? _feedbackMessage;
+  final logger = Logger(printer: PrettyPrinter());
 
   Future<void> _showEditDialog(String variety, double currentPrice) async {
     final priceController = TextEditingController(text: currentPrice.toString());
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      setState(() {
+        _feedbackMessage = 'No user logged in';
+      });
+      return;
+    }
 
     final result = await showDialog<bool>(
       context: context,
@@ -292,7 +357,16 @@ class _PriceListScreenState extends State<PriceListScreen> {
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: coffeeBrown),
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              double? price = double.tryParse(priceController.text);
+              if (price == null || price < 0) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Invalid price')),
+                );
+                return;
+              }
+              Navigator.pop(dialogContext, true);
+            },
             child: const Text('Save'),
           ),
         ],
@@ -300,21 +374,56 @@ class _PriceListScreenState extends State<PriceListScreen> {
     );
 
     if (result == true) {
-      double? price = double.tryParse(priceController.text);
-      if (price != null && price >= 0) {
-        String docId = '${widget.cooperativeName.replaceAll(' ', '_')}_$variety';
-        final marketPrice = CoopMarketPrice(
-          id: docId,
-          cooperative: widget.cooperativeName,
-          variety: variety,
-          price: price,
-          updatedBy: user.uid,
-          timestamp: Timestamp.now(),
-        );
-        await FirebaseFirestore.instance.collection('coffee_prices').doc(docId).set(marketPrice.toMap());
+      try {
+        double price = double.parse(priceController.text);
+        String formattedCoopId = widget.cooperativeName.replaceAll(' ', '_');
+        await FirebaseFirestore.instance
+            .collection('${formattedCoopId}_coffeeprices')
+            .doc(variety)
+            .update({
+          'price': price,
+          'updatedBy': user.uid,
+          'timestamp': Timestamp.now(),
+        });
         setState(() => _feedbackMessage = 'Price for $variety updated to Ksh $price/kg');
-      } else {
-        setState(() => _feedbackMessage = 'Invalid price entered');
+      } catch (e) {
+        logger.e('Error updating price: $e');
+        setState(() => _feedbackMessage = 'Error updating price: $e');
+      }
+    }
+  }
+
+  Future<void> _deletePrice(String variety) async {
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Delete $variety'),
+        content: const Text('Are you sure you want to delete this variety and price?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        String formattedCoopId = widget.cooperativeName.replaceAll(' ', '_');
+        await FirebaseFirestore.instance
+            .collection('${formattedCoopId}_coffeeprices')
+            .doc(variety)
+            .delete();
+        setState(() => _feedbackMessage = '$variety deleted');
+      } catch (e) {
+        logger.e('Error deleting price: $e');
+        setState(() => _feedbackMessage = 'Error deleting price: $e');
       }
     }
   }
@@ -328,6 +437,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
       });
     }
 
+    String formattedCoopId = widget.cooperativeName.replaceAll(' ', '_');
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -340,12 +450,15 @@ class _PriceListScreenState extends State<PriceListScreen> {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('coffee_prices')
-            .where('cooperative', isEqualTo: widget.cooperativeName)
+            .collection('${formattedCoopId}_coffeeprices')
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            logger.e('Error loading prices: ${snapshot.error}');
+            return Center(child: Text('Error: ${snapshot.error}'));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
@@ -357,26 +470,40 @@ class _PriceListScreenState extends State<PriceListScreen> {
             );
           }
 
-          final prices = snapshot.data!.docs
-              .map((doc) => CoopMarketPrice.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>, null))
-              .toList();
+          final prices = snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return {
+              'variety': data['variety'] as String? ?? 'Unknown',
+              'price': (data['price'] as num?)?.toDouble() ?? 0.0,
+            };
+          }).toList();
 
           return SingleChildScrollView(
             child: DataTable(
               columns: const [
                 DataColumn(label: Text('Variety', style: TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text('Price (Ksh/kg)', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Edit', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
               ],
               rows: prices.map((price) {
                 return DataRow(cells: [
-                  DataCell(Text(price.variety)),
-                  DataCell(Text(price.price.toStringAsFixed(2))),
-                  DataCell(IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () async {
-                      await _showEditDialog(price.variety, price.price);
-                    },
+                  DataCell(Text(price['variety'] as String)),
+                  DataCell(Text((price['price'] as double).toStringAsFixed(2))),
+                  DataCell(Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () async {
+                          await _showEditDialog(price['variety'] as String, price['price'] as double);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          await _deletePrice(price['variety']! as String);
+                        },
+                      ),
+                    ],
                   )),
                 ]);
               }).toList(),

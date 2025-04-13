@@ -83,7 +83,8 @@ class _HomePageState extends State<HomePage> {
         _redirectToLogin('User account not found. Please log in again.');
         return;
       }
-      AppUser appUser = AppUser.fromFirestore(userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
+      AppUser appUser = AppUser.fromFirestore(
+          userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
 
       // Check Admin role
       DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
@@ -98,34 +99,44 @@ class _HomePageState extends State<HomePage> {
           .doc(_userId)
           .get();
       bool isCoopAdmin = coopAdminSnapshot.exists;
-      String? coopAdminCoop = isCoopAdmin ? coopAdminSnapshot['cooperative']?.replaceAll('_', ' ') : null;
+      String? coopAdminCoop = isCoopAdmin
+          ? coopAdminSnapshot['cooperative']?.replaceAll('_', ' ')
+          : null;
 
       // Check Market Manager and cooperative registration
       bool isMarketManager = false;
       bool isCoopRegistered = false;
       String? cooperativeName;
-      QuerySnapshot coopSnapshot = await FirebaseFirestore.instance.collection('cooperatives').get();
+
+      // Fetch cooperatives
+      QuerySnapshot coopSnapshot =
+          await FirebaseFirestore.instance.collection('cooperatives').get();
       for (var coopDoc in coopSnapshot.docs) {
         String coopId = coopDoc.id;
         String formattedCoopName = coopId.replaceAll('_', ' ');
         try {
-          // Check if user is registered in cooperative
-          DocumentSnapshot userDoc = await FirebaseFirestore.instance
-              .collection('${coopId}_users')
+          // Check if user is a Market Manager
+          DocumentSnapshot managerSnapshot = await FirebaseFirestore.instance
+              .collection('${coopId}_marketmanagers')
               .doc(_userId)
               .get();
-          if (userDoc.exists) {
-            isCoopRegistered = true;
+          if (managerSnapshot.exists) {
+            isMarketManager = true;
             cooperativeName = formattedCoopName;
-            // Check if user is a Market Manager
-            DocumentSnapshot managerSnapshot = await FirebaseFirestore.instance
-                .collection('${coopId}_marketmanagers')
+            isCoopRegistered = true;
+            break; // Found market manager role, no need to check further
+          }
+
+          // Check if user is registered in cooperative (if not already set)
+          if (!isCoopRegistered) {
+            DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                .collection('${coopId}_users')
                 .doc(_userId)
                 .get();
-            if (managerSnapshot.exists) {
-              isMarketManager = true;
+            if (userDoc.exists) {
+              isCoopRegistered = true;
+              cooperativeName = formattedCoopName;
             }
-            break; // Stop after finding the user's cooperative
           }
         } catch (e) {
           logger.e('Error checking cooperative $coopId: $e');
@@ -151,7 +162,11 @@ class _HomePageState extends State<HomePage> {
           _isCoopAdmin = isCoopAdmin;
           _isMarketManager = isMarketManager;
           _isCoopRegistered = isCoopRegistered;
-          _cooperativeName = isCoopAdmin ? coopAdminCoop : (isMarketManager ? cooperativeName : null);
+          _cooperativeName = isCoopAdmin
+              ? coopAdminCoop
+              : (isMarketManager || isCoopRegistered
+                  ? cooperativeName
+                  : null);
           logger.i(
               'Fetched data - UserId: $_userId, UserData: $_userData, IsAdmin: $_isMainAdmin, IsCoopAdmin: $_isCoopAdmin, IsMarketManager: $_isMarketManager, IsCoopRegistered: $_isCoopRegistered, Cooperative: $_cooperativeName');
         });
@@ -160,8 +175,10 @@ class _HomePageState extends State<HomePage> {
       logger.e('Error fetching user data: $e');
       if (mounted) {
         String errorMsg = 'Error fetching user data: $e';
-        if (e.toString().contains('permission-denied')) {
-          errorMsg += ' (Check Firestore rules)';
+        if (e.toString().contains('unavailable')) {
+          errorMsg = 'Connect to internet to access better features';
+        } else if (e.toString().contains('permission-denied')) {
+          errorMsg = 'Permission denied. Please contact support.';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMsg)),
@@ -203,19 +220,24 @@ class _HomePageState extends State<HomePage> {
         AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
         setState(() {
           _userData = appUser.toMap();
-          _profileImageBytes = appUser.profileImage != null && appUser.profileImage!.isNotEmpty
+          _profileImageBytes = appUser.profileImage != null &&
+                  appUser.profileImage!.isNotEmpty
               ? base64Decode(appUser.profileImage!)
               : null;
         });
       }
-    });
+    }, onError: (e) => logger.e('Error listening to user data: $e'));
 
     // Listen to Admin role
     FirebaseFirestore.instance
         .collection('Admins')
         .doc(_userId)
         .snapshots()
-        .listen((snapshot) => setState(() => _isMainAdmin = snapshot.exists));
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() => _isMainAdmin = snapshot.exists);
+      }
+    }, onError: (e) => logger.e('Error listening to Admin role: $e'));
 
     // Listen to Coop Admin role
     FirebaseFirestore.instance
@@ -226,50 +248,75 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         setState(() {
           _isCoopAdmin = snapshot.exists;
-          _cooperativeName = snapshot.exists && snapshot.data()?['cooperative'] != null
+          _cooperativeName = snapshot.exists &&
+                  snapshot.data()?['cooperative'] != null
               ? snapshot['cooperative'].replaceAll('_', ' ')
               : _cooperativeName;
         });
       }
-    });
+    }, onError: (e) => logger.e('Error listening to CoopAdmin role: $e'));
 
-    // Listen to Market Manager and cooperative registration
-    FirebaseFirestore.instance.collection('cooperatives').snapshots().listen((coopSnapshot) {
+    // Listen to cooperatives for Market Manager and registration status
+    FirebaseFirestore.instance
+        .collection('cooperatives')
+        .snapshots()
+        .listen((coopSnapshot) async {
+      bool foundMarketManager = false;
+      bool foundCoopRegistered = false;
+      String? tempCoopName;
+
       for (var coopDoc in coopSnapshot.docs) {
         String coopId = coopDoc.id;
-        // Check Market Manager status
-        FirebaseFirestore.instance
-            .collection('${coopId}_marketmanagers')
-            .doc(_userId)
-            .snapshots()
-            .listen((managerSnapshot) {
-          if (mounted) {
-            setState(() {
-              _isMarketManager = managerSnapshot.exists;
-              if (_isMarketManager) {
-                _cooperativeName = coopId.replaceAll('_', ' ');
-              }
-            });
-          }
-        }, onError: (e) => logger.i('Not a Market Manager in $coopId: $e'));
+        String formattedCoopName = coopId.replaceAll('_', ' ');
 
-        // Check cooperative registration
-        FirebaseFirestore.instance
-            .collection('${coopId}_users')
-            .doc(_userId)
-            .snapshots()
-            .listen((userSnapshot) {
-          if (mounted) {
+        // Check Market Manager status
+        try {
+          DocumentSnapshot managerSnapshot = await FirebaseFirestore.instance
+              .collection('${coopId}_marketmanagers')
+              .doc(_userId)
+              .get();
+          if (managerSnapshot.exists && mounted) {
             setState(() {
-              _isCoopRegistered = userSnapshot.exists;
-              if (userSnapshot.exists && !_isMarketManager && !_isCoopAdmin) {
-                _cooperativeName = coopId.replaceAll('_', ' ');
-              }
+              _isMarketManager = true;
+              _isCoopRegistered = true;
+              tempCoopName = formattedCoopName;
             });
+            foundMarketManager = true;
+            break; // Stop checking other coops if market manager is found
           }
-        }, onError: (e) => logger.i('Not registered in $coopId: $e'));
+        } catch (e) {
+          logger.i('Not a Market Manager in $coopId: $e');
+        }
+
+        // Check cooperative registration (if not already found)
+        if (!foundMarketManager && !foundCoopRegistered) {
+          try {
+            DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+                .collection('${coopId}_users')
+                .doc(_userId)
+                .get();
+            if (userSnapshot.exists && mounted) {
+              setState(() {
+                _isCoopRegistered = true;
+                tempCoopName = formattedCoopName;
+              });
+              foundCoopRegistered = true;
+            }
+          } catch (e) {
+            logger.i('Not registered in $coopId: $e');
+          }
+        }
       }
-    });
+
+      if (mounted && !foundMarketManager) {
+        setState(() {
+          _isMarketManager = false;
+          if (foundCoopRegistered) {
+            _cooperativeName = tempCoopName;
+          }
+        });
+      }
+    }, onError: (e) => logger.e('Error listening to cooperatives: $e'));
   }
 
   void _redirectToLogin(String message) {
@@ -355,7 +402,9 @@ class _HomePageState extends State<HomePage> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const NotificationsSettingsScreen()),
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          const NotificationsSettingsScreen()),
                 );
               },
             ),
@@ -384,22 +433,48 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildRoleBasedButtons() {
+    List<Widget> buttons = [];
+
+    // Always include the Menu button
+    buttons.add(
+      Expanded(
+        child: _buildMenuButton(context),
+      ),
+    );
+
+    // Add role-specific buttons
     if (_isMainAdmin) {
-      return _buildAdminButton();
+      buttons.add(
+        Expanded(
+          child: _buildAdminButton(),
+        ),
+      );
     } else if (_isCoopAdmin) {
-      return _buildCoopAdminButton();
+      buttons.add(
+        Expanded(
+          child: _buildCoopAdminButton(),
+        ),
+      );
     } else if (_isMarketManager) {
-      return _buildMarketManagerButton();
-    } else {
-      return Builder(
-        builder: (context) => _buildMenuButton(context),
+      buttons.add(
+        Expanded(
+          child: _buildMarketManagerButton(),
+        ),
       );
     }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: buttons,
+      ),
+    );
   }
 
   Widget _buildAdminButton() {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: ElevatedButton.icon(
         onPressed: () {
           Navigator.push(
@@ -410,7 +485,7 @@ class _HomePageState extends State<HomePage> {
         icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
         label: const Text('Admin Management', style: TextStyle(color: Colors.white)),
         style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
           backgroundColor: Colors.brown[700],
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -420,18 +495,19 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildCoopAdminButton() {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: ElevatedButton.icon(
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const CoopAdminManagementScreen()),
+            MaterialPageRoute(
+                builder: (context) => const CoopAdminManagementScreen()),
           );
         },
         icon: const Icon(Icons.group, color: Colors.white),
-        label: const Text('Co-op Admin Management', style: TextStyle(color: Colors.white)),
+        label: const Text('Co-op Admin', style: TextStyle(color: Colors.white)),
         style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
           backgroundColor: Colors.brown[700],
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -441,7 +517,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildMarketManagerButton() {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: ElevatedButton.icon(
         onPressed: () {
           Navigator.push(
@@ -452,7 +528,7 @@ class _HomePageState extends State<HomePage> {
         icon: const Icon(Icons.price_change, color: Colors.white),
         label: const Text('Set Prices', style: TextStyle(color: Colors.white)),
         style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
           backgroundColor: Colors.brown[700],
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -462,15 +538,15 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildMenuButton(BuildContext scaffoldContext) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: ElevatedButton.icon(
         onPressed: () {
           Scaffold.of(scaffoldContext).openDrawer();
         },
         icon: const Icon(Icons.menu, color: Colors.white),
-        label: const Text('MENU', style: TextStyle(color: Colors.white)),
+        label: const Text('Menu', style: TextStyle(color: Colors.white)),
         style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
           backgroundColor: Colors.brown[700],
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -518,7 +594,8 @@ class _HomePageState extends State<HomePage> {
                 child: Container(
                   color: Colors.black54,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  child: Text(labels[index], style: const TextStyle(color: Colors.white, fontSize: 16)),
+                  child: Text(labels[index],
+                      style: const TextStyle(color: Colors.white, fontSize: 16)),
                 ),
               ),
             ],
@@ -537,10 +614,16 @@ class _HomePageState extends State<HomePage> {
         physics: const NeverScrollableScrollPhysics(),
         children: [
           _buildClickableCard('Coffee Farming Tips', Icons.lightbulb, () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => LearnCoffeeFarming()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const LearnCoffeeFarming()));
           }),
           _buildClickableCard('Coffee Prices', Icons.shopping_cart, () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const CoffeePricesWidget()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const CoffeePricesWidget()));
           }),
         ],
       ),
@@ -598,7 +681,8 @@ class _HomePageState extends State<HomePage> {
           if (index == 2) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const CoffeeManagementScreen()),
+              MaterialPageRoute(
+                  builder: (context) => const CoffeeManagementScreen()),
             );
           }
         });
@@ -613,13 +697,17 @@ class _HomePageState extends State<HomePage> {
         children: [
           GestureDetector(
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen()));
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const UserProfileScreen()));
             },
             child: UserAccountsDrawerHeader(
               decoration: BoxDecoration(color: Colors.brown[700]),
               accountName: Text(
                 _userData?['fullName'] ?? 'Loading...',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
               ),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white,
@@ -631,7 +719,8 @@ class _HomePageState extends State<HomePage> {
                           width: 60,
                           height: 60,
                           errorBuilder: (context, error, stackTrace) =>
-                              Icon(Icons.person, size: 40, color: Colors.brown[700]),
+                              Icon(Icons.person,
+                                  size: 40, color: Colors.brown[700]),
                         ),
                       )
                     : Icon(Icons.person, size: 40, color: Colors.brown[700]),
@@ -644,34 +733,49 @@ class _HomePageState extends State<HomePage> {
             setState(() {});
           }),
           _buildDrawerItem(Icons.cloud, 'Weather', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const WeatherScreen()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const WeatherScreen()));
           }),
           _buildDrawerItem(Icons.input, 'Field Data (Soil)', () {
             logger.i('Navigating to CoffeeSoilHomePage, userId: $_userId');
             if (_userId != null) {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const CoffeeSoilHomePage()),
+                MaterialPageRoute(
+                    builder: (context) => const CoffeeSoilHomePage()),
               );
             } else {
               logger.w('User ID is null, attempting refresh');
               _fetchUserData();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('User ID not available. Retrying...')),
+                const SnackBar(
+                    content: Text('User ID not available. Retrying...')),
               );
             }
           }),
           _buildDrawerItem(Icons.pest_control, 'Pests & Diseases', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const PestDiseaseHomePage()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const PestDiseaseHomePage()));
           }),
           _buildDrawerItem(Icons.supervisor_account, 'Farm Management', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const CoffeeManagementScreen()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const CoffeeManagementScreen()));
           }),
           _buildDrawerItem(Icons.book, 'Coffee Manuals', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const ManualsScreen()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ManualsScreen()));
           }),
           _buildDrawerItem(Icons.settings, 'Settings', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SettingsScreen()));
           }),
           _buildDrawerItem(Icons.logout, 'Logout', _handleLogout),
         ],
