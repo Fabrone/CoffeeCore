@@ -20,7 +20,7 @@ class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixi
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(seconds: 4), // Total animation duration
+      duration: const Duration(seconds: 4), 
       vsync: this,
     );
 
@@ -77,7 +77,7 @@ class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixi
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        color: Colors.brown[100], // Light coffee background
+        color: Colors.brown[100], 
         child: Center(
           child: AnimatedBuilder(
             animation: _controller,
@@ -97,9 +97,9 @@ class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixi
                           bottom: 0,
                           child: Container(
                             width: 100,
-                            height: 100 * _fillAnimation.value, // Height grows with animation
+                            height: 100 * _fillAnimation.value, 
                             decoration: BoxDecoration(
-                              color: Colors.brown[800], // Dark coffee color
+                              color: Colors.brown[800], 
                               borderRadius: const BorderRadius.only(
                                 bottomLeft: Radius.circular(50),
                                 bottomRight: Radius.circular(50),
@@ -109,7 +109,7 @@ class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixi
                         ),
                         // Coffee cup outline (static)
                         const Icon(
-                          Icons.local_cafe, // Coffee cup icon
+                          Icons.local_cafe, 
                           size: 120,
                           color: Colors.brown,
                         ),
@@ -121,9 +121,9 @@ class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixi
                   Opacity(
                     opacity: _textFadeAnimation.value,
                     child: const Text(
-                      'Producing Great Coffee',
+                      'Improving Coffee Production',
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: 26,
                         fontWeight: FontWeight.bold,
                         color: Colors.brown,
                       ),

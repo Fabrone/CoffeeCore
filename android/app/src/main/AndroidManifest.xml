@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- For Android 9 and below -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- For Android 13+ granular media permissions (optional, fallback) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <application
-        android:label="coffeecore"
+        android:label="CoffeeCore"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
