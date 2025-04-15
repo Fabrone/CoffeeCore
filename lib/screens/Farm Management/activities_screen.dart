@@ -27,20 +27,26 @@ class ActivitiesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('All Coffee Farm Activities')),
+      appBar: AppBar(title: const Text('All Farm Activities')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Card(
-                child: ListTile(
-                    title: const Text('Total Costs'), subtitle: Text('KSH $totalCosts'))),
+              child: ListTile(
+                title: const Text('Total Costs'),
+                subtitle: Text('KSH $totalCosts'),
+              ),
+            ),
             Card(
-                child: ListTile(
-                    title: const Text('Profit/Loss'), subtitle: Text('KSH $profitLoss'))),
+              child: ListTile(
+                title: const Text('Profit/Loss'),
+                subtitle: Text('KSH $profitLoss'),
+              ),
+            ),
             const SizedBox(height: 20),
-            const Text('Coffee Farm Activities',
+            const Text('Labour Activities',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             ListView.builder(
               shrinkWrap: true,
@@ -57,7 +63,7 @@ class ActivitiesScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Coffee Farm Equipment Costs',
+            const Text('Mechanical Costs',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             ListView.builder(
               shrinkWrap: true,
@@ -74,7 +80,7 @@ class ActivitiesScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Coffee Farm Input Costs',
+            const Text('Input Costs',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             ListView.builder(
               shrinkWrap: true,
@@ -116,7 +122,9 @@ class ActivitiesScreen extends StatelessWidget {
               itemCount: revenues.length,
               itemBuilder: (context, index) => ListTile(
                 title: Text(
-                    '${revenues[index]['crop']} - KSH ${revenues[index]['amount']}'),
+                    '${revenues[index]['coffeeVariety']} - KSH ${revenues[index]['amount']}'),
+                subtitle: Text(
+                    'Yield: ${revenues[index]['yield']} kg - Date: ${revenues[index]['date']}'),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
                   onPressed: () => onDelete('revenue', index),

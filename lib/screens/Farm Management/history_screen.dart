@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class HistoryScreen extends StatefulWidget {
   final List<Map<String, dynamic>> labourActivities;
@@ -33,6 +35,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   DateTime? endDate;
   String selectedCycle;
   late SharedPreferences _prefs;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool useFirebase = false;
 
   _HistoryScreenState() : selectedCycle = '';
 
@@ -51,48 +55,111 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void _loadCycleData(String cycle) {
     setState(() {
       widget.labourActivities.clear();
-      widget.labourActivities.addAll(
-        (_prefs.getString('labourActivities_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('labourActivities_$cycle')!))
-            : [],
-      );
       widget.mechanicalCosts.clear();
-      widget.mechanicalCosts.addAll(
-        (_prefs.getString('mechanicalCosts_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('mechanicalCosts_$cycle')!))
-            : [],
-      );
       widget.inputCosts.clear();
-      widget.inputCosts.addAll(
-        (_prefs.getString('inputCosts_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('inputCosts_$cycle')!))
-            : [],
-      );
       widget.miscellaneousCosts.clear();
-      widget.miscellaneousCosts.addAll(
-        (_prefs.getString('miscellaneousCosts_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('miscellaneousCosts_$cycle')!))
-            : [],
-      );
       widget.revenues.clear();
-      widget.revenues.addAll(
-        (_prefs.getString('revenues_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('revenues_$cycle')!))
-            : [],
-      );
       widget.paymentHistory.clear();
-      widget.paymentHistory.addAll(
-        (_prefs.getString('paymentHistory_$cycle') != null)
-            ? List<Map<String, dynamic>>.from(
-                jsonDecode(_prefs.getString('paymentHistory_$cycle')!))
-            : [],
-      );
+
+      if (!useFirebase) {
+        widget.labourActivities.addAll(
+          (_prefs.getString('labourActivities_$cycle') != null)
+              ? List<Map<String, dynamic>>.from(
+                  jsonDecode(_prefs.getString('labourActivities_$cycle')!))
+              : [],
+        );
+        widget.mechanicalCosts.addAll(
+          (_prefs.getString('mechanicalCosts_$cycle') != null)
+              ? List<Map<String, dynamic>>.from(
+                  jsonDecode(_prefs.getString('mechanicalCosts_$cycle')!))
+              : [],
+        );
+        widget.inputCosts.addAll(
+          (_prefs.getString('inputCosts_$cycle') != null)
+              ? List<Map<String, dynamic>>.from(
+                  jsonDecode(_prefs.getString('inputCosts_$cycle')!))
+              : [],
+        );
+        widget.miscellaneousCosts.addAll(
+          (_prefs.getString('miscellaneousCosts_$cycle') != null)
+              ? List<Map<String, dynamic>>.from(
+                  jsonDecode(_prefs.getString('miscellaneousCosts_$cycle')!))
+              : [],
+        );
+        widget.revenues.addAll(
+          (_prefs.getString('revenues_$cycle') != null)
+              ? List<Map<String, dynamic>>.from(
+                  jsonDecode(_prefs.getString('revenues_$cycle')!))
+              : [],
+        );
+        widget.paymentHistory.addAll(
+          (_prefs.getString('paymentHistory_$cycle') != null)
+              ? List<Map<String, dynamic>>.from(
+                  jsonDecode(_prefs.getString('paymentHistory_$cycle')!))
+              : [],
+        );
+      }
     });
+  }
+
+  Future<void> _loadFromFirebase(String cycle) async {
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    String? message;
+
+    if (userId == null) {
+      message = 'You must be logged in to fetch from Firebase';
+    } else {
+      try {
+        DocumentSnapshot doc =
+            await _firestore.collection('farm_data').doc(userId).get();
+        if (!doc.exists) {
+          message = 'No data found for this user in Firebase';
+        } else {
+          Map<String, dynamic>? data = doc.data() as Map<String, dynamic>?;
+          if (data == null || data['cycles'] == null) {
+            message = 'No cycle data found in Firebase document';
+          } else {
+            Map<String, dynamic> cycles = data['cycles'];
+            if (cycles.containsKey(cycle)) {
+              setState(() {
+                widget.labourActivities.clear();
+                widget.mechanicalCosts.clear();
+                widget.inputCosts.clear();
+                widget.miscellaneousCosts.clear();
+                widget.revenues.clear();
+                widget.paymentHistory.clear();
+
+                widget.labourActivities.addAll(List<Map<String, dynamic>>.from(
+                    cycles[cycle]['labourActivities'] ?? []));
+                widget.mechanicalCosts.addAll(List<Map<String, dynamic>>.from(
+                    cycles[cycle]['mechanicalCosts'] ?? []));
+                widget.inputCosts.addAll(
+                    List<Map<String, dynamic>>.from(cycles[cycle]['inputCosts'] ?? []));
+                widget.miscellaneousCosts.addAll(List<Map<String, dynamic>>.from(
+                    cycles[cycle]['miscellaneousCosts'] ?? []));
+                widget.revenues.addAll(
+                    List<Map<String, dynamic>>.from(cycles[cycle]['revenues'] ?? []));
+                widget.paymentHistory.addAll(List<Map<String, dynamic>>.from(
+                    cycles[cycle]['paymentHistory'] ?? []));
+              });
+              message = 'Data retrieved from Firebase successfully';
+            } else {
+              message = 'Cycle "$cycle" not found in Firebase';
+            }
+          }
+        }
+      } catch (e) {
+        message = e is FirebaseException
+            ? 'Firebase Error: ${e.code} - ${e.message}'
+            : 'Unexpected error: $e';
+      }
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   List<Map<String, dynamic>> filterByDate(List<Map<String, dynamic>> data) {
@@ -115,7 +182,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     var filteredPayments = filterByDate(widget.paymentHistory);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Coffee Farm History')),
+      appBar: AppBar(title: const Text('History')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -126,17 +193,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 DropdownButton<String>(
                   value: selectedCycle,
                   items: [widget.cycleName, ...widget.pastCycles]
-                      .map((cycle) =>
-                          DropdownMenuItem(value: cycle, child: Text(cycle)))
+                      .map((cycle) => DropdownMenuItem(value: cycle, child: Text(cycle)))
                       .toList(),
-                  onChanged: (value) {
+                  onChanged: (value) async {
                     if (value != null) {
                       setState(() {
                         selectedCycle = value;
                         _loadCycleData(value);
-                        startDate = null;
-                        endDate = null;
                       });
+                      if (useFirebase) {
+                        await _loadFromFirebase(value);
+                      }
                     }
                   },
                 ),
@@ -170,9 +237,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ],
             ),
+            CheckboxListTile(
+              title: const Text('Use Firebase Data'),
+              value: useFirebase,
+              onChanged: (value) async {
+                setState(() {
+                  useFirebase = value ?? false;
+                });
+                if (useFirebase) {
+                  await _loadFromFirebase(selectedCycle);
+                } else {
+                  _loadCycleData(selectedCycle);
+                }
+              },
+            ),
             const SizedBox(height: 20),
             if (filteredLabour.isNotEmpty) ...[
-              const Text('Coffee Farm Activities',
+              const Text('Labour Activities',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               ListView.builder(
                 shrinkWrap: true,
@@ -189,7 +270,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SizedBox(height: 20),
             ],
             if (filteredMechanical.isNotEmpty) ...[
-              const Text('Coffee Farm Equipment Costs',
+              const Text('Mechanical Costs',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               ListView.builder(
                 shrinkWrap: true,
@@ -206,7 +287,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SizedBox(height: 20),
             ],
             if (filteredInputs.isNotEmpty) ...[
-              const Text('Coffee Farm Input Costs',
+              const Text('Input Costs',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               ListView.builder(
                 shrinkWrap: true,
@@ -249,7 +330,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 itemBuilder: (context, index) {
                   final item = filteredRevenues[index];
                   return ListTile(
-                    title: Text('${item['crop']} - KSH ${item['amount']}'),
+                    title: Text('${item['coffeeVariety']} - KSH ${item['amount']}'),
+                    subtitle:
+                        Text('Yield: ${item['yield']} kg - Date: ${item['date']}'),
                   );
                 },
               ),
@@ -266,8 +349,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   final item = filteredPayments[index];
                   return ListTile(
                     title: Text('${item['date']} - KSH ${item['amount']}'),
-                    subtitle:
-                        Text('Remaining: KSH ${item['remainingBalance']}'),
+                    subtitle: Text('Remaining: KSH ${item['remainingBalance']}'),
                   );
                 },
               ),
