@@ -154,7 +154,6 @@ class _AdminPestManagementPageState extends State<AdminPestManagementPage> {
           'timestamp': Timestamp.now(),
           'details': 'Hard-deleted intervention for user ${intervention.userId}',
         });
-
         if (mounted) {
           scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Intervention permanently deleted')));
         }
