@@ -15,7 +15,8 @@ class CoffeeSoilHomePage extends StatelessWidget {
         backgroundColor: const Color(0xFF3C2F2F),
         title: const Text(
           'Soil Management',
-          style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+          style: TextStyle(
+              color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -30,33 +31,51 @@ class CoffeeSoilHomePage extends StatelessWidget {
           children: [
             const Text(
               'Select Coffee Farming Structure',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF4A2C2A)),
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF4A2C2A)),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
-            _buildCard(context, 'Single Crop', 'Manage soil data for a single coffee plot.', () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => CoffeeSoilInputPage(structureType: 'single')),
-            )),
-            _buildCard(context, 'Intercrop', 'Manage soil data for coffee with intercrops.', () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => CoffeeSoilInputPage(structureType: 'intercrop')),
-            )),
-            _buildCard(context, 'Multiple Plots', 'Manage soil data for multiple coffee plots.', () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => CoffeeSoilInputPage(structureType: 'multiple')),
-            )),
-            _buildCard(context, 'Soil History', 'View saved soil data and interventions.', () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => CoffeeSoilSummaryPage(userId: userId)),
-            )),
+            _buildCard(
+                context,
+                'Single Crop',
+                'Manage soil data for a single coffee plot.',
+                () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              CoffeeSoilInputPage(structureType: 'single')),
+                    )),
+            _buildCard(
+                context,
+                'Multiple Plots',
+                'Manage soil data for multiple coffee plots.',
+                () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              CoffeeSoilInputPage(structureType: 'multiple')),
+                    )),
+            _buildCard(
+                context,
+                'Soil History',
+                'View saved soil data and interventions.',
+                () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              CoffeeSoilSummaryPage(userId: userId)),
+                    )),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCard(BuildContext context, String title, String description, VoidCallback onTap) {
+  Widget _buildCard(
+      BuildContext context, String title, String description, VoidCallback onTap) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -72,7 +91,10 @@ class CoffeeSoilHomePage extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4A2C2A)),
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4A2C2A)),
               ),
               const SizedBox(height: 8),
               Text(

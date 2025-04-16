@@ -121,7 +121,7 @@ class SplashScreenState extends State<SplashScreen> with TickerProviderStateMixi
                   Opacity(
                     opacity: _textFadeAnimation.value,
                     child: const Text(
-                      'Improving Coffee Production',
+                      'Sow, Safeguard, Soar',
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
