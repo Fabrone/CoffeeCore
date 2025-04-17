@@ -61,9 +61,8 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['Warm temperatures (25-30°C)', 'High humidity', 'Poor sanitation'],
       'preventiveMeasures': ['Regular harvesting', 'Sanitation of fallen cherries', 'Shade management'],
       'lifecycleImages': [
-        'assets/pests/coffee_berry_borer_egg.jpg',
-        'assets/pests/coffee_berry_borer_larva.jpg',
-        'assets/pests/coffee_berry_borer_adult.jpg',
+        'assets/pests/coffee_berry_borer.png',
+        'assets/pests/coffee_berry_borers.png',
       ],
     },
     'Coffee Leaf Miner': {
@@ -75,9 +74,11 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['Warm, dry conditions', 'Overcrowded plants'],
       'preventiveMeasures': ['Monitor leaf health', 'Avoid dense planting'],
       'lifecycleImages': [
-        'assets/pests/coffee_leaf_miner_egg.jpg',
-        'assets/pests/coffee_leaf_miner_larva.jpg',
-        'assets/pests/coffee_leaf_miner_adult.jpg',
+        'assets/pests/leaf_miner_eggs.png',
+        'assets/pests/leaf_miner_cartepillars.png',
+        'assets/pests/leaf_miner_pupation_cocoon.png',
+        'assets/pests/leaf_miner_predatorwasp.png',
+        'assets/pests/leaf_miner_lesion.png'
       ],
     },
     'Coffee Antestia Bug': {
@@ -89,8 +90,9 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['High rainfall', 'Poor pruning'],
       'preventiveMeasures': ['Regular pruning', 'Field hygiene'],
       'lifecycleImages': [
-        'assets/pests/coffee_antestia_bug_nymph.jpg',
-        'assets/pests/coffee_antestia_bug_adult.jpg',
+        'assets/pests/antestia_bug.png',
+        'assets/pests/coffee_antestia_bug.png',
+        'assets/pests/coffee_antestia_bugs.png',
       ],
     },
     'Coffee Stem Borer': {

@@ -63,6 +63,7 @@ flutter:
     - assets/coffee_farming_tips.jpg
     - assets/coffee_soil.jpg
     - assets/coffee-plant.png
+    - assets/pests/
 
 flutter_launcher_icons:
   android: true
