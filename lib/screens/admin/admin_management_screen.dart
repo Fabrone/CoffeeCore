@@ -70,11 +70,10 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
         'phoneNumber': userData['phoneNumber'] ?? '',
         'email': userData['email'] ?? '',
         'isDisabled': userData['isDisabled'] ?? false,
-        'added': true,
       };
 
       await FirebaseFirestore.instance.collection(collection).doc(uid).set(roleData);
-      _logActivity('Assigned $collection role to $uid (User: ${userData['fullName']})');
+      await _logActivity('Assigned $collection role to $uid (User: ${userData['fullName']})');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('${collection.replaceAll('s', '')} role assigned successfully!')));
@@ -291,7 +290,7 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
               Navigator.pop(context);
               _uidController.clear();
             },
-            child: const Text('Assign'),
+            child: const Text('Assign.'),
           ),
         ],
       ),

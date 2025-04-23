@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:intl/intl.dart';
 
 class CollectionManagementScreen extends StatefulWidget {
   final String collectionName;
@@ -16,17 +17,23 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
   String _sortField = '';
   bool _sortAscending = true;
   final logger = Logger(printer: PrettyPrinter());
+  final DateFormat _dateFormat = DateFormat('MMM dd, yyyy HH:mm');
 
-  Future<Map<String, String>?> _fetchUserName(String uid) async {
+  Future<Map<String, String>?> _fetchUserName(String uid, String sourceCollection) async {
     try {
-      final userDoc = await FirebaseFirestore.instance.collection('Users').doc(uid).get();
+      final collection = sourceCollection == 'Admins'
+          ? 'Admins'
+          : sourceCollection == 'CoopAdmins'
+              ? 'CoopAdmins'
+              : 'Users';
+      final userDoc = await FirebaseFirestore.instance.collection(collection).doc(uid).get();
       if (userDoc.exists) {
         return {'fullName': userDoc['fullName'] ?? 'N/A', 'email': userDoc['email'] ?? 'N/A'};
       }
     } catch (e) {
-      logger.e('Error fetching user name for UID $uid: $e');
+      logger.e('Error fetching user name for UID $uid from $sourceCollection: $e');
     }
-    return null;
+    return {'fullName': 'N/A', 'email': 'N/A'};
   }
 
   Future<void> _deleteDocument(String docId) async {
@@ -75,7 +82,9 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
       await _logActivity('restore', widget.collectionName, docId);
       scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Document restored!')));
     } catch (e) {
-      scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error restoring document: $e')));
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error restoring document: $e')));
+      }
     }
   }
 
@@ -83,7 +92,7 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final Map<String, TextEditingController> controllers = {};
     currentData.forEach((key, value) {
-      if (key != 'profileImage' && key != 'timestamp' && key != 'isDeleted' && key != 'deletedAt') {
+      if (!_excludedFields.contains(key) && key != 'fullName' && key != 'timestamp') {
         controllers[key] = TextEditingController(text: value?.toString() ?? '');
       }
     });
@@ -137,17 +146,33 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
 
   Future<void> _logActivity(String action, String collection, String docId) async {
     try {
+      final adminUid = FirebaseAuth.instance.currentUser?.uid;
+      final adminDoc = await FirebaseFirestore.instance.collection('Admins').doc(adminUid).get();
+      final adminName = adminDoc.exists ? adminDoc['fullName'] ?? 'N/A' : 'N/A';
       await FirebaseFirestore.instance.collection('admin_logs').add({
-        'action': action,
+        'action': '$action in $collection ($docId) by (User: $adminName)',
         'collection': collection,
         'documentId': docId,
         'timestamp': Timestamp.now(),
-        'adminUid': FirebaseAuth.instance.currentUser?.uid,
+        'adminUid': adminUid,
       });
     } catch (e) {
       logger.e('Error logging activity: $e');
     }
   }
+
+  final List<String> _excludedFields = [
+    'uid',
+    'userId',
+    'adminUid',
+    'createdBy',
+    'updatedBy',
+    'added',
+    'isDeleted',
+    'deletedAt',
+    'profileImage',
+    'documentId',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -155,6 +180,11 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
         widget.collectionName.contains('_marketmanagers') ||
         widget.collectionName.contains('_coffeeprices');
     String baseCollection = widget.collectionName.contains('_coffeeprices') ? 'coffeeprices' : widget.collectionName;
+    String nameSourceCollection = widget.collectionName == 'admin_logs'
+        ? 'Admins'
+        : widget.collectionName == 'cooperatives'
+            ? 'CoopAdmins'
+            : 'Users';
 
     return Scaffold(
       appBar: AppBar(
@@ -178,9 +208,26 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
           final docs = snapshot.data!.docs;
           final firstDocData = docs.isNotEmpty ? docs.first.data() as Map<String, dynamic> : {};
           List<String> fields = firstDocData.keys
-              .where((key) => key != 'profileImage' && key != 'isDeleted' && key != 'deletedAt')
+              .where((key) => !_excludedFields.contains(key) && key != 'fullName')
               .toList()
               .cast<String>();
+
+          // Customize fields for specific collections
+          if (widget.collectionName == 'User_logs') {
+            fields = ['action', 'details', 'collection', 'timestamp'];
+          } else if (widget.collectionName == 'admin_logs') {
+            fields = ['action', 'collection', 'timestamp'];
+          } else if (widget.collectionName == 'cooperatives') {
+            fields = ['name', 'timestamp'];
+          } else if (widget.collectionName.contains('_coffeeprices')) {
+            fields = ['variety', 'price', 'timestamp'];
+          } else if (['coffee_disease_interventions', 'coffee_pest_interventions', 'coffee_soil_data'].contains(widget.collectionName)) {
+            fields = firstDocData.keys
+                .where((key) => !_excludedFields.contains(key) && key != 'fullName' && key != 'timestamp')
+                .toList()
+                .cast<String>();
+            fields.add('timestamp');
+          }
 
           if (fields.isEmpty) {
             fields = ['unknown'];
@@ -212,7 +259,7 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
               ),
               Expanded(
                 child: FutureBuilder<List<Map<String, dynamic>>>(
-                  future: _processDocuments(docs, isCoopCollection, baseCollection),
+                  future: _processDocuments(docs, isCoopCollection, baseCollection, nameSourceCollection),
                   builder: (context, futureSnapshot) {
                     if (futureSnapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -232,7 +279,7 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
                           columns: [
                             DataColumn(
                                 label: Text(
-                                    isCoopCollection && baseCollection != 'coffeeprices' ? 'Full Name' : 'ID',
+                                    isCoopCollection && baseCollection != 'coffeeprices' ? 'Full Name' : 'Name',
                                     style: const TextStyle(fontWeight: FontWeight.bold))),
                             ...fields.map((field) => DataColumn(
                                 label: Text(field, style: const TextStyle(fontWeight: FontWeight.bold)))),
@@ -245,8 +292,14 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
                             final docId = docs[index].id;
                             final isDeleted = data['isDeleted'] == true;
                             return DataRow(cells: [
-                              DataCell(Text(data['displayName'] ?? docId)),
-                              ...fields.map((field) => DataCell(Text(data[field]?.toString() ?? 'N/A'))),
+                              DataCell(Text(data['fullName'] ?? data['displayName'] ?? 'N/A')),
+                              ...fields.map((field) => DataCell(Text(
+                                    field == 'timestamp' || field == 'createdAt' || field == 'updatedAt' || field == 'deletedAt'
+                                        ? data[field] != null
+                                            ? _dateFormat.format((data[field] as Timestamp).toDate())
+                                            : 'N/A'
+                                        : data[field]?.toString() ?? 'N/A',
+                                  ))),
                               DataCell(
                                 PopupMenuButton<String>(
                                   onSelected: (value) {
@@ -312,20 +365,33 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
   }
 
   Future<List<Map<String, dynamic>>> _processDocuments(
-      List<QueryDocumentSnapshot> docs, bool isCoopCollection, String baseCollection) async {
+      List<QueryDocumentSnapshot> docs, bool isCoopCollection, String baseCollection, String nameSourceCollection) async {
     List<Map<String, dynamic>> processedData = [];
     for (var doc in docs) {
       final data = doc.data() as Map<String, dynamic>;
       Map<String, dynamic> rowData = Map.from(data);
 
-      if (isCoopCollection && baseCollection != 'coffeeprices' ||
-          ['Users', 'Admins', 'CoopAdmins'].contains(widget.collectionName) ||
-          widget.collectionName.contains('_users') ||
-          widget.collectionName.contains('_marketmanagers')) {
-        final userInfo = await _fetchUserName(doc.id);
-        rowData['displayName'] = userInfo?['fullName'] ?? 'N/A';
+      // Handle fullName for specific collections
+      if (widget.collectionName == 'User_logs') {
+        final userInfo = await _fetchUserName(data['userId'] ?? '', 'Users');
+        rowData['fullName'] = userInfo?['fullName'] ?? 'N/A';
+      } else if (widget.collectionName == 'admin_logs') {
+        final userInfo = await _fetchUserName(data['adminUid'] ?? '', 'Admins');
+        rowData['fullName'] = userInfo?['fullName'] ?? 'N/A';
+      } else if (['coffee_disease_interventions', 'coffee_pest_interventions', 'coffee_soil_data'].contains(widget.collectionName)) {
+        final userInfo = await _fetchUserName(data['userId'] ?? '', 'Users');
+        rowData['fullName'] = userInfo?['fullName'] ?? 'N/A';
+      } else if (widget.collectionName == 'cooperatives') {
+        final userInfo = await _fetchUserName(data['createdBy'] ?? '', 'CoopAdmins');
+        rowData['fullName'] = userInfo?['fullName'] ?? 'N/A';
+      } else if (isCoopCollection && baseCollection == 'coffeeprices') {
+        final userInfo = await _fetchUserName(data['updatedBy'] ?? '', 'Users');
+        rowData['fullName'] = userInfo?['fullName'] ?? 'N/A';
+      } else if (isCoopCollection && (baseCollection.contains('_users') || baseCollection.contains('_marketmanagers'))) {
+        final userInfo = await _fetchUserName(doc.id, 'Users');
+        rowData['fullName'] = userInfo?['fullName'] ?? 'N/A';
       } else {
-        rowData['displayName'] = doc.id;
+        rowData['fullName'] = rowData['fullName'] ?? doc.id;
       }
 
       processedData.add(rowData);

@@ -99,17 +99,16 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
             'isDisabled': data['isDisabled'] ?? false,
           });
         }
-        mergedUsers[uid]!['role_${collection.replaceAll('_', '')}'] = true;
-      }
-    }
-
-    final logsSnapshot = await FirebaseFirestore.instance.collection('User_logs').get();
-    for (var doc in logsSnapshot.docs) {
-      final data = doc.data();
-      final uid = data['userId'];
-      if (mergedUsers.containsKey(uid)) {
-        mergedUsers[uid]!['lastAction'] = data['action'] ?? 'N/A';
-        mergedUsers[uid]!['lastActionTime'] = (data['timestamp'] as Timestamp?)?.toDate().toString() ?? 'N/A';
+        String role = collection == 'Admins'
+            ? 'Admin'
+            : collection == 'CoopAdmins'
+                ? 'CoopAdmin'
+                : collection.contains('_marketmanagers')
+                    ? 'MarketManager'
+                    : collection.contains('_users')
+                        ? 'CoopUser'
+                        : 'User';
+        mergedUsers[uid]!['role'] = role;
       }
     }
 
@@ -129,7 +128,7 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
       Sheet sheet = excel['Users'];
 
       List<String> headers = selectedFields.isEmpty
-          ? ['Full Name', 'Email', 'County', 'Constituency', 'Ward', 'Phone Number', 'Status']
+          ? ['Full Name', 'Email', 'County', 'Constituency', 'Ward', 'Phone Number', 'Status', 'Role']
           : selectedFields;
       sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
 
@@ -273,14 +272,20 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
                           value.toString().toLowerCase().contains(_searchQuery));
                     }).toList();
 
-              Set<String> allFields = {};
-              for (var user in allUsers) {
-                allFields.addAll(user.keys.where((key) => key != 'uid' && key != 'profileImage'));
-              }
+              Set<String> allFields = {
+                'fullName',
+                'email',
+                'county',
+                'constituency',
+                'ward',
+                'phoneNumber',
+                'isDisabled',
+                'role',
+              };
               List<String> fields = allFields.toList()..sort();
 
               if (_sortField.isEmpty || !fields.contains(_sortField)) {
-                _sortField = fields.contains('fullName') ? 'fullName' : fields.first;
+                _sortField = 'fullName';
               }
 
               return Column(
@@ -355,7 +360,13 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
                               DataCell(Text(user['fullName'] ?? 'N/A')),
                               ...fields
                                   .where((field) => field != 'fullName')
-                                  .map((field) => DataCell(Text(user[field]?.toString() ?? 'N/A'))),
+                                  .map((field) => DataCell(Text(
+                                        field == 'isDisabled'
+                                            ? user[field] == true
+                                                ? 'Disabled'
+                                                : 'Active'
+                                            : user[field]?.toString() ?? 'N/A',
+                                      ))),
                               DataCell(
                                 PopupMenuButton<String>(
                                   onSelected: (value) {
@@ -421,7 +432,7 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final Map<String, TextEditingController> controllers = {};
     currentData.forEach((key, value) {
-      if (key != 'uid' && key != 'profileImage' && !key.startsWith('role_')) {
+      if (key != 'uid' && key != 'profileImage' && key != 'role') {
         controllers[key] = TextEditingController(text: value?.toString() ?? '');
       }
     });
