@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:coffeecore/screens/messaging_screen.dart';
 
 class CoopCollectionManagementScreen extends StatefulWidget {
   final String cooperativeName;
@@ -141,6 +142,18 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
     }
   }
 
+  Future<void> _contactMarketManagers() async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MessagingScreen(
+          cooperativeName: widget.cooperativeName,
+          initialChat: '${widget.cooperativeName.replaceAll(' ', '_')}_Prices',
+        ),
+      ),
+    );
+  }
+
   Future<void> _logActivity(String action) async {
     try {
       String formattedCoopName = widget.cooperativeName.replaceAll(' ', '_');
@@ -161,7 +174,11 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
   @override
   Widget build(BuildContext context) {
     String formattedCoopName = widget.cooperativeName.replaceAll(' ', '_');
-    String title = widget.collectionName == 'users' ? 'Manage Cooperative Users' : 'Manage Cooperative Market Managers';
+    String title = widget.collectionName == 'users'
+        ? 'Manage Cooperative Users'
+        : widget.collectionName == 'marketmanagers'
+            ? 'Manage Cooperative Market Managers'
+            : 'View Cooperative Coffee Prices';
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -173,34 +190,35 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                const Text('Sort by: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                DropdownButton<String>(
-                  value: _sortField,
-                  items: const [
-                    DropdownMenuItem(value: 'fullName', child: Text('Full Name')),
-                    DropdownMenuItem(value: 'county', child: Text('County')),
-                    DropdownMenuItem(value: 'constituency', child: Text('Constituency')),
-                    DropdownMenuItem(value: 'ward', child: Text('Ward')),
-                  ],
-                  onChanged: (value) => setState(() => _sortField = value!),
-                  style: const TextStyle(color: Colors.black),
-                ),
-                IconButton(
-                  icon: Icon(_sortAscending ? Icons.arrow_upward : Icons.arrow_downward),
-                  onPressed: () => setState(() => _sortAscending = !_sortAscending),
-                ),
-              ],
+          if (widget.collectionName != 'coffeeprices')
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  const Text('Sort by: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                  DropdownButton<String>(
+                    value: _sortField,
+                    items: const [
+                      DropdownMenuItem(value: 'fullName', child: Text('Full Name')),
+                      DropdownMenuItem(value: 'county', child: Text('County')),
+                      DropdownMenuItem(value: 'constituency', child: Text('Constituency')),
+                      DropdownMenuItem(value: 'ward', child: Text('Ward')),
+                    ],
+                    onChanged: (value) => setState(() => _sortField = value!),
+                    style: const TextStyle(color: Colors.black),
+                  ),
+                  IconButton(
+                    icon: Icon(_sortAscending ? Icons.arrow_upward : Icons.arrow_downward),
+                    onPressed: () => setState(() => _sortAscending = !_sortAscending),
+                  ),
+                ],
+              ),
             ),
-          ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('${formattedCoopName}_${widget.collectionName}')
-                  .orderBy(_sortField, descending: !_sortAscending)
+                  .orderBy(widget.collectionName == 'coffeeprices' ? 'variety' : _sortField, descending: !_sortAscending)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -212,7 +230,7 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Center(
-                      child: Text('No ${widget.collectionName == 'users' ? 'users' : 'market managers'} found.'));
+                      child: Text('No ${widget.collectionName == 'users' ? 'users' : widget.collectionName == 'marketmanagers' ? 'market managers' : 'coffee prices'} found.'));
                 }
 
                 final docs = snapshot.data!.docs;
@@ -220,81 +238,102 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
                   scrollDirection: Axis.horizontal,
                   child: SingleChildScrollView(
                     scrollDirection: Axis.vertical,
-                    child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('Full Name', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Email', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('County', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Constituency', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Ward', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Phone Number', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                      ],
-                      rows: docs.map((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        final uid = doc.id;
-                        return DataRow(cells: [
-                          DataCell(Text(data['fullName'] ?? 'N/A')),
-                          DataCell(Text(data['email'] ?? 'N/A')),
-                          DataCell(Text(data['county'] ?? 'N/A')),
-                          DataCell(Text(data['constituency'] ?? 'N/A')),
-                          DataCell(Text(data['ward'] ?? 'N/A')),
-                          DataCell(Text(data['phoneNumber'] ?? 'N/A')),
-                          DataCell(Text(data['isDisabled'] == true ? 'Disabled' : 'Active')),
-                          DataCell(
-                            PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert),
-                              onSelected: (value) {
-                                switch (value) {
-                                  case 'edit':
-                                    _editDocument(uid, data);
-                                    break;
-                                  case 'delete':
-                                    _deleteDocument(uid);
-                                    break;
-                                  case 'reset':
-                                    _resetPassword(data['email'] ?? '');
-                                    break;
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit, color: Colors.blue),
-                                      SizedBox(width: 8),
-                                      Text('Edit'),
+                    child: widget.collectionName == 'coffeeprices'
+                        ? DataTable(
+                            columns: const [
+                              DataColumn(label: Text('Variety', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Price (Ksh/kg)', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Contact', style: TextStyle(fontWeight: FontWeight.bold))),
+                            ],
+                            rows: docs.map((doc) {
+                              final data = doc.data() as Map<String, dynamic>;
+                              return DataRow(cells: [
+                                DataCell(Text(data['variety'] ?? 'N/A')),
+                                DataCell(Text((data['price'] as num?)?.toStringAsFixed(2) ?? 'N/A')),
+                                DataCell(
+                                  IconButton(
+                                    icon: const Icon(Icons.message, color: Colors.green),
+                                    onPressed: _contactMarketManagers,
+                                  ),
+                                ),
+                              ]);
+                            }).toList(),
+                          )
+                        : DataTable(
+                            columns: const [
+                              DataColumn(label: Text('Full Name', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Email', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('County', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Constituency', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Ward', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Phone Number', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+                            ],
+                            rows: docs.map((doc) {
+                              final data = doc.data() as Map<String, dynamic>;
+                              final uid = doc.id;
+                              return DataRow(cells: [
+                                DataCell(Text(data['fullName'] ?? 'N/A')),
+                                DataCell(Text(data['email'] ?? 'N/A')),
+                                DataCell(Text(data['county'] ?? 'N/A')),
+                                DataCell(Text(data['constituency'] ?? 'N/A')),
+                                DataCell(Text(data['ward'] ?? 'N/A')),
+                                DataCell(Text(data['phoneNumber'] ?? 'N/A')),
+                                DataCell(Text(data['isDisabled'] == true ? 'Disabled' : 'Active')),
+                                DataCell(
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert),
+                                    onSelected: (value) {
+                                      switch (value) {
+                                        case 'edit':
+                                          _editDocument(uid, data);
+                                          break;
+                                        case 'delete':
+                                          _deleteDocument(uid);
+                                          break;
+                                        case 'reset':
+                                          _resetPassword(data['email'] ?? '');
+                                          break;
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      const PopupMenuItem(
+                                        value: 'edit',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.edit, color: Colors.blue),
+                                            SizedBox(width: 8),
+                                            Text('Edit'),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.delete, color: Colors.red),
+                                            SizedBox(width: 8),
+                                            Text('Delete'),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'reset',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.lock_reset, color: Colors.green),
+                                            SizedBox(width: 8),
+                                            Text('Reset Password'),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Delete'),
-                                    ],
-                                  ),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'reset',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.lock_reset, color: Colors.green),
-                                      SizedBox(width: 8),
-                                      Text('Reset Password'),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ]);
+                            }).toList(),
                           ),
-                        ]);
-                      }).toList(),
-                    ),
                   ),
                 );
               },

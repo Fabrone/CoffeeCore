@@ -8,6 +8,7 @@ import 'package:coffeecore/screens/Cooperative%20Section/filter_users_screen.dar
 import 'package:coffeecore/screens/learn_coffee_farming.dart';
 import 'package:coffeecore/screens/manuals_screen.dart';
 import 'package:coffeecore/screens/Farm%20Management/coffee_management_screen.dart';
+import 'package:coffeecore/screens/messaging_screen.dart';
 
 class CoopAdminManagementScreen extends StatefulWidget {
   const CoopAdminManagementScreen({super.key});
@@ -22,7 +23,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
   final TextEditingController _uidController = TextEditingController();
   String? _cooperativeName;
   String? _userId;
-  final List<String> _allCollections = ['users', 'marketmanagers'];
+  final List<String> _allCollections = ['users', 'marketmanagers', 'coffeeprices'];
   int _selectedIndex = 0;
 
   @override
@@ -290,6 +291,16 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
     );
   }
 
+  void _showMessagesScreen() {
+    if (_cooperativeName == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MessagingScreen(cooperativeName: _cooperativeName!),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _coopNameController.dispose();
@@ -376,7 +387,11 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
                       logger.e('Error in collection stats for $collection: ${snapshot.error}');
                       return ListTile(
                         title: Text(
-                          collection == 'users' ? 'Users' : 'Market Managers',
+                          collection == 'users'
+                              ? 'Users'
+                              : collection == 'marketmanagers'
+                                  ? 'Market Managers'
+                                  : 'Coffee Prices',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         trailing: const Text('Error', style: TextStyle(fontSize: 16, color: Colors.red)),
@@ -397,7 +412,11 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
                       },
                       child: ListTile(
                         title: Text(
-                          collection == 'users' ? 'Users' : 'Market Managers',
+                          collection == 'users'
+                              ? 'Users'
+                              : collection == 'marketmanagers'
+                                  ? 'Market Managers'
+                                  : 'Coffee Prices',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         trailing: Text('$count', style: const TextStyle(fontSize: 16, color: Colors.brown)),
@@ -420,6 +439,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
       children: [
         _buildOptionCard('Assign Market Manager', Icons.person_add, () => _showAssignMarketManagerDialog()),
         _buildOptionCard('Filter Users', Icons.filter_list, () => _showFilterUsersScreen()),
+        _buildOptionCard('Messages', Icons.message, () => _showMessagesScreen()),
       ],
     );
   }

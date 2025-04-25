@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logger/logger.dart';
+import 'package:coffeecore/screens/messaging_screen.dart';
 
 class MarketManagerScreen extends StatefulWidget {
   const MarketManagerScreen({super.key});
@@ -24,7 +25,7 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
     super.initState();
     _fetchCooperativeName();
     _animationController = AnimationController(
-      duration: const Duration(seconds: 10), // Slower for uniform transition
+      duration: const Duration(seconds: 10),
       vsync: this,
     )..repeat();
     _currencyAnimation = IntTween(begin: 0, end: 8).animate(
@@ -128,6 +129,19 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
                         await _showAddVarietyDialog(context);
                       },
                     ),
+                    const SizedBox(height: 20),
+                    _buildOptionCard(
+                      'Messages',
+                      Icons.message,
+                      () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MessagingScreen(cooperativeName: _cooperativeName!),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -137,15 +151,15 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
 
   Widget _buildCurrencyAnimation() {
     final List<String> currencies = [
-      '\$', // USD
-      '€', // EUR
-      '£', // GBP
-      '¥', // JPY
-      '₹', // INR
-      'R', // ZAR
-      'A\$', // AUD
-      'Ksh', // KES
-      '₣', // CHF
+      '\$',
+      '€',
+      '£',
+      '¥',
+      '₹',
+      'R',
+      'A\$',
+      'Ksh',
+      '₣',
     ];
     return AnimatedBuilder(
       animation: _currencyAnimation,
@@ -153,14 +167,14 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
         return Text(
           currencies[_currencyAnimation.value],
           style: TextStyle(
-            fontSize: 48, // Larger size
+            fontSize: 48,
             color: const Color.fromRGBO(121, 85, 72, 1.0),
             fontWeight: FontWeight.bold,
             fontStyle: FontStyle.italic,
             shadows: [
               Shadow(
                 blurRadius: 4.0,
-                color: const Color.fromRGBO(0, 0, 0, 0.3), // Replaced withOpacity
+                color: const Color.fromRGBO(0, 0, 0, 0.3),
                 offset: const Offset(2.0, 2.0),
               ),
             ],
