@@ -1,45 +1,63 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:logger/logger.dart';
 
 class RoleUtils {
-  static final Logger _logger = Logger(printer: PrettyPrinter());
-
   static Future<String> getUserRole(String userId, String cooperativeName) async {
     try {
       String formattedCoopName = cooperativeName.replaceAll(' ', '_');
-      _logger.i('Checking role for userId: $userId in cooperative: $formattedCoopName');
 
-      // Check if user is a Coop Admin
+      // Check Main Admin
+      DocumentSnapshot adminDoc = await FirebaseFirestore.instance
+          .collection('Admins')
+          .doc(userId)
+          .get();
+      if (adminDoc.exists) {
+        return 'Main Admin';
+      }
+
+      // Check Coop Admin
       DocumentSnapshot coopAdminDoc = await FirebaseFirestore.instance
           .collection('CoopAdmins')
           .doc(userId)
           .get();
-      if (coopAdminDoc.exists && coopAdminDoc['cooperative'] == formattedCoopName) {
-        _logger.i('User $userId is a Coop Admin');
-        return 'Coop Admin';
-      } else {
-        _logger.i('User $userId is not a Coop Admin');
+      if (coopAdminDoc.exists && coopAdminDoc.data() != null) {
+        Map<String, dynamic> data = coopAdminDoc.data() as Map<String, dynamic>;
+        if (data['cooperative'] == formattedCoopName) {
+          return 'Coop Admin';
+        } else {
+          throw Exception('User is a Coop Admin for a different cooperative: ${data['cooperative']}');
+        }
       }
 
-      // Check if user is a Market Manager
-      String marketManagerCollection = '${formattedCoopName}_marketmanagers';
+      // Check Market Manager
       DocumentSnapshot marketManagerDoc = await FirebaseFirestore.instance
-          .collection(marketManagerCollection)
+          .collection('${formattedCoopName}_marketmanagers')
           .doc(userId)
           .get();
       if (marketManagerDoc.exists) {
-        _logger.i('User $userId is a Market Manager in $marketManagerCollection');
         return 'Market Manager';
-      } else {
-        _logger.i('User $userId is not a Market Manager in $marketManagerCollection');
       }
 
-      // Default to User
-      _logger.i('User $userId is a regular User');
-      return 'User';
+      // Check Coop User
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('${formattedCoopName}_users')
+          .doc(userId)
+          .get();
+      if (userDoc.exists) {
+        return 'User';
+      }
+
+      // Validate cooperative existence
+      DocumentSnapshot coopDoc = await FirebaseFirestore.instance
+          .collection('cooperatives')
+          .doc(formattedCoopName)
+          .get();
+      if (!coopDoc.exists) {
+        throw Exception('Cooperative $cooperativeName does not exist');
+      }
+
+      return 'None';
     } catch (e) {
-      _logger.e('Error determining user role for $userId in $cooperativeName: $e');
-      return 'User';
+      throw Exception('Error checking role: $e');
     }
   }
 }

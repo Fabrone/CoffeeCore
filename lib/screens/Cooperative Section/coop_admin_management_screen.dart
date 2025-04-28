@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:coffeecore/screens/Cooperative%20Section/coop_collection_management_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
@@ -8,7 +7,8 @@ import 'package:coffeecore/screens/Cooperative%20Section/filter_users_screen.dar
 import 'package:coffeecore/screens/learn_coffee_farming.dart';
 import 'package:coffeecore/screens/manuals_screen.dart';
 import 'package:coffeecore/screens/Farm%20Management/coffee_management_screen.dart';
-import 'package:coffeecore/screens/messaging_screen.dart';
+import 'package:coffeecore/screens/messaging_screen.dart' as messaging;
+import 'package:coffeecore/screens/Cooperative%20Section/coop_collection_management_screen.dart';
 
 class CoopAdminManagementScreen extends StatefulWidget {
   const CoopAdminManagementScreen({super.key});
@@ -168,9 +168,11 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
     try {
       String formattedCoopName = _cooperativeName!.replaceAll(' ', '_');
       await FirebaseFirestore.instance
-          .collection(formattedCoopName)
-          .doc('logs')
-          .collection('coop_admin_logs')
+          .collection('cooperatives')
+          .doc(formattedCoopName)
+          .collection('logs')
+          .doc('coop_admin_logs')
+          .collection('logs')
           .add({
         'action': action,
         'timestamp': Timestamp.now(),
@@ -296,7 +298,10 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MessagingScreen(cooperativeName: _cooperativeName!),
+        builder: (context) => messaging.MessagingScreen(
+          cooperativeName: _cooperativeName!,
+          initialChat: '${_cooperativeName!.replaceAll(' ', '_')}_Management',
+        ),
       ),
     );
   }

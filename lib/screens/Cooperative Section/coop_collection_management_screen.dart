@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
-import 'package:coffeecore/screens/messaging_screen.dart';
+import 'package:coffeecore/screens/messaging_screen.dart' as messaging;
 
 class CoopCollectionManagementScreen extends StatefulWidget {
   final String cooperativeName;
@@ -146,9 +146,9 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MessagingScreen(
+        builder: (context) => messaging.MessagingScreen(
           cooperativeName: widget.cooperativeName,
-          initialChat: '${widget.cooperativeName.replaceAll(' ', '_')}_Prices',
+          initialChat: '${widget.cooperativeName.replaceAll(' ', '_')}_Management',
         ),
       ),
     );
@@ -254,6 +254,7 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
                                   IconButton(
                                     icon: const Icon(Icons.message, color: Colors.green),
                                     onPressed: _contactMarketManagers,
+                                    tooltip: 'Contact Market Managers',
                                   ),
                                 ),
                               ]);

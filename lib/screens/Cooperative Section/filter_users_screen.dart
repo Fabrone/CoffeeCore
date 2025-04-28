@@ -114,6 +114,11 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
       setState(() {});
     } catch (e) {
       logger.e('Error updating suggestions: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading suggestions: $e')),
+        );
+      }
     }
   }
 
@@ -484,13 +489,26 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
 
     for (var doc in userDocs) {
       final data = doc.data() as Map<String, dynamic>;
-      // Use getUserRole primarily for Coop Admin detection
-      String role = await RoleUtils.getUserRole(doc.id, widget.cooperativeName);
-      // Override role if user is a Market Manager (unless they are Coop Admin)
-      if (marketManagerUids.contains(doc.id) && role != 'Coop Admin') {
+      String role = 'User'; // Default role
+
+      // Check if user is a Market Manager first
+      if (marketManagerUids.contains(doc.id)) {
         role = 'Market Manager';
-        logger.i('Assigned Market Manager role to UID: ${doc.id}');
+        logger.i('Assigned Market Manager role to UID: ${doc.id} based on marketManagerUids');
       }
+
+      // Check for Coop Admin or Main Admin roles
+      try {
+        String fetchedRole = await RoleUtils.getUserRole(doc.id, widget.cooperativeName);
+        if (fetchedRole == 'Coop Admin' || fetchedRole == 'Main Admin') {
+          role = fetchedRole;
+          logger.i('Assigned $role to UID: ${doc.id} based on RoleUtils');
+        }
+      } catch (e) {
+        logger.e('Error getting role for UID ${doc.id}: $e');
+        // Keep role as Market Manager or User if already assigned
+      }
+
       users.add({
         'uid': doc.id,
         'fullName': data['fullName'] ?? 'N/A',

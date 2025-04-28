@@ -462,7 +462,7 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             Expanded(child: _buildMenuButton(context)),
-            const SizedBox(width: 16.0), // Add spacing between buttons
+            const SizedBox(width: 16.0), 
             Expanded(child: _buildMarketManagerButton()),
           ],
         ),
