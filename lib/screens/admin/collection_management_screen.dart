@@ -91,11 +91,38 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
   Future<void> _editDocument(String docId, Map<String, dynamic> currentData) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final Map<String, TextEditingController> controllers = {};
-    currentData.forEach((key, value) {
-      if (!_excludedFields.contains(key) && key != 'fullName' && key != 'timestamp') {
-        controllers[key] = TextEditingController(text: value?.toString() ?? '');
+    DateTime? interventionFollowUpDate;
+
+    // Define fields for coffee_soil_data
+    final coffeeSoilFields = [
+      'stage',
+      'structureType',
+      'plotId',
+      'ph',
+      'nitrogen',
+      'phosphorus',
+      'potassium',
+      'magnesium',
+      'calcium',
+      'interventionMethod',
+      'interventionQuantity',
+      'interventionUnit',
+    ];
+
+    if (widget.collectionName == 'coffee_soil_data') {
+      interventionFollowUpDate = currentData['interventionFollowUpDate'] != null
+          ? (currentData['interventionFollowUpDate'] as Timestamp).toDate()
+          : null;
+      for (var field in coffeeSoilFields) {
+        controllers[field] = TextEditingController(text: currentData[field]?.toString() ?? '');
       }
-    });
+    } else {
+      currentData.forEach((key, value) {
+        if (!_excludedFields.contains(key) && key != 'fullName' && key != 'timestamp') {
+          controllers[key] = TextEditingController(text: value?.toString() ?? '');
+        }
+      });
+    }
 
     final result = await showDialog<Map<String, String>>(
       context: context,
@@ -104,18 +131,51 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: controllers.entries.map((entry) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: TextField(
-                  controller: entry.value,
-                  decoration: InputDecoration(
-                    labelText: entry.key,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+            children: [
+              if (widget.collectionName == 'coffee_soil_data') ...[
+                ...coffeeSoilFields.map((field) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: TextField(
+                        controller: controllers[field]!,
+                        decoration: InputDecoration(
+                          labelText: field,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        keyboardType: ['ph', 'nitrogen', 'phosphorus', 'potassium', 'magnesium', 'calcium']
+                                .contains(field)
+                            ? TextInputType.number
+                            : TextInputType.text,
+                      ),
+                    )),
+                ListTile(
+                  title: Text(
+                      'Intervention Follow-Up: ${interventionFollowUpDate?.toString().substring(0, 10) ?? 'N/A'}'),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: interventionFollowUpDate ?? DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime(2030),
+                    );
+                    if (picked != null) {
+                      interventionFollowUpDate = picked;
+                    }
+                  },
                 ),
-              );
-            }).toList(),
+              ] else ...[
+                ...controllers.entries.map((entry) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: TextField(
+                        controller: entry.value,
+                        decoration: InputDecoration(
+                          labelText: entry.key,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    )),
+              ],
+            ],
           ),
         ),
         actions: [
@@ -124,7 +184,10 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, controllers.map((key, controller) => MapEntry(key, controller.text))),
+            onPressed: () {
+              final updatedData = controllers.map((key, controller) => MapEntry(key, controller.text));
+              Navigator.pop(dialogContext, updatedData);
+            },
             child: const Text('Save'),
           ),
         ],
@@ -133,7 +196,19 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
 
     if (result != null && mounted) {
       try {
-        await FirebaseFirestore.instance.collection(widget.collectionName).doc(docId).update(result);
+        final updateData = <String, dynamic>{};
+        result.forEach((key, value) {
+          if (widget.collectionName == 'coffee_soil_data' &&
+              ['ph', 'nitrogen', 'phosphorus', 'potassium', 'magnesium', 'calcium'].contains(key)) {
+            updateData[key] = value.isNotEmpty ? double.tryParse(value) : null;
+          } else {
+            updateData[key] = value.isNotEmpty ? value : null;
+          }
+        });
+        if (widget.collectionName == 'coffee_soil_data' && interventionFollowUpDate != null) {
+          updateData['interventionFollowUpDate'] = Timestamp.fromDate(interventionFollowUpDate!);
+        }
+        await FirebaseFirestore.instance.collection(widget.collectionName).doc(docId).update(updateData);
         await _logActivity('edit', widget.collectionName, docId);
         scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Document updated successfully!')));
       } catch (e) {
@@ -207,13 +282,26 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
 
           final docs = snapshot.data!.docs;
           final firstDocData = docs.isNotEmpty ? docs.first.data() as Map<String, dynamic> : {};
-          List<String> fields = firstDocData.keys
-              .where((key) => !_excludedFields.contains(key) && key != 'fullName')
-              .toList()
-              .cast<String>();
+          List<String> fields = [];
 
-          // Customize fields for specific collections
-          if (widget.collectionName == 'User_logs') {
+          if (widget.collectionName == 'coffee_soil_data') {
+            fields = [
+              'stage',
+              'structureType',
+              'plotId',
+              'ph',
+              'nitrogen',
+              'phosphorus',
+              'potassium',
+              'magnesium',
+              'calcium',
+              'interventionMethod',
+              'interventionQuantity',
+              'interventionUnit',
+              'interventionFollowUpDate',
+              'timestamp',
+            ];
+          } else if (widget.collectionName == 'User_logs') {
             fields = ['action', 'details', 'collection', 'timestamp'];
           } else if (widget.collectionName == 'admin_logs') {
             fields = ['action', 'collection', 'timestamp'];
@@ -221,12 +309,11 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
             fields = ['name', 'timestamp'];
           } else if (widget.collectionName.contains('_coffeeprices')) {
             fields = ['variety', 'price', 'timestamp'];
-          } else if (['coffee_disease_interventions', 'coffee_pest_interventions', 'coffee_soil_data'].contains(widget.collectionName)) {
+          } else {
             fields = firstDocData.keys
-                .where((key) => !_excludedFields.contains(key) && key != 'fullName' && key != 'timestamp')
+                .where((key) => !_excludedFields.contains(key) && key != 'fullName')
                 .toList()
                 .cast<String>();
-            fields.add('timestamp');
           }
 
           if (fields.isEmpty) {
@@ -294,7 +381,11 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
                             return DataRow(cells: [
                               DataCell(Text(data['fullName'] ?? data['displayName'] ?? 'N/A')),
                               ...fields.map((field) => DataCell(Text(
-                                    field == 'timestamp' || field == 'createdAt' || field == 'updatedAt' || field == 'deletedAt'
+                                    field == 'timestamp' ||
+                                            field == 'createdAt' ||
+                                            field == 'updatedAt' ||
+                                            field == 'deletedAt' ||
+                                            field == 'interventionFollowUpDate'
                                         ? data[field] != null
                                             ? _dateFormat.format((data[field] as Timestamp).toDate())
                                             : 'N/A'
@@ -371,7 +462,6 @@ class _CollectionManagementScreenState extends State<CollectionManagementScreen>
       final data = doc.data() as Map<String, dynamic>;
       Map<String, dynamic> rowData = Map.from(data);
 
-      // Handle fullName for specific collections
       if (widget.collectionName == 'User_logs') {
         final userInfo = await _fetchUserName(data['userId'] ?? '', 'Users');
         rowData['fullName'] = userInfo?['fullName'] ?? 'N/A';

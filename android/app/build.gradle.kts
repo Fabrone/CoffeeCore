@@ -54,5 +54,11 @@ flutter {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22")
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")  
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") 
+
+    implementation(platform("com.google.firebase:firebase-bom:33.12.0")) 
+    // Add the dependencies for the Firebase Cloud Messaging and Analytics libraries
+    // When using the BoM, you don't specify versions in Firebase library dependencies
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-analytics")
 }
