@@ -37,6 +37,15 @@ class RoleUtils {
         return 'Market Manager';
       }
 
+      // Check Loan Manager
+      DocumentSnapshot loanManagerDoc = await FirebaseFirestore.instance
+          .collection('${formattedCoopName}_loanmanagers')
+          .doc(userId)
+          .get();
+      if (loanManagerDoc.exists) {
+        return 'Loan Manager';
+      }
+
       // Check Coop User
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('${formattedCoopName}_users')

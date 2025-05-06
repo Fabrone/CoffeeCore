@@ -7,7 +7,6 @@ import 'package:coffeecore/screens/Cooperative%20Section/filter_users_screen.dar
 import 'package:coffeecore/screens/learn_coffee_farming.dart';
 import 'package:coffeecore/screens/manuals_screen.dart';
 import 'package:coffeecore/screens/Farm%20Management/coffee_management_screen.dart';
-import 'package:coffeecore/screens/messaging_screen.dart' as messaging;
 import 'package:coffeecore/screens/Cooperative%20Section/coop_collection_management_screen.dart';
 
 class CoopAdminManagementScreen extends StatefulWidget {
@@ -23,7 +22,24 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
   final TextEditingController _uidController = TextEditingController();
   String? _cooperativeName;
   String? _userId;
-  final List<String> _allCollections = ['users', 'marketmanagers', 'coffeeprices'];
+  final Map<String, String> _collectionDisplayNames = {
+    'users': 'Users',
+    'marketmanagers': 'Market Managers',
+    'loanmanagers': 'Loan Managers',
+    'coffeeprices': 'Coffee Prices',
+    'coffee_disease_interventions': 'Disease Interventions',
+    'coffee_pest_interventions': 'Pest Interventions',
+    'coffee_soil_data': 'Soil Data',
+  };
+  final List<String> _allCollections = [
+    'users',
+    'marketmanagers',
+    'loanmanagers',
+    'coffeeprices',
+    'coffee_disease_interventions',
+    'coffee_pest_interventions',
+    'coffee_soil_data',
+  ];
   int _selectedIndex = 0;
 
   @override
@@ -125,7 +141,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
     }
   }
 
-  Future<void> _assignMarketManager(String uid) async {
+  Future<void> _assignUserRole(String uid, String role) async {
     if (_cooperativeName == null) return;
     try {
       String formattedCoopName = _cooperativeName!.replaceAll(' ', '_');
@@ -136,8 +152,9 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
       if (!userDoc.exists) throw 'User not found in this cooperative';
       final userData = userDoc.data() as Map<String, dynamic>;
 
+      String collection = role == 'Market Manager' ? 'marketmanagers' : 'loanmanagers';
       await FirebaseFirestore.instance
-          .collection('${formattedCoopName}_marketmanagers')
+          .collection('${formattedCoopName}_$collection')
           .doc(uid)
           .set({
         'fullName': userData['fullName'] ?? '',
@@ -148,17 +165,17 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
         'email': userData['email'] ?? '',
         'uid': uid,
       });
-      _logActivity('Assigned Market Manager role to $uid in cooperative $_cooperativeName');
+      _logActivity('Assigned $role role to $uid in cooperative $_cooperativeName');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Market Manager assigned successfully!')),
+          SnackBar(content: Text('$role assigned successfully!')),
         );
       }
     } catch (e) {
-      logger.e('Error assigning Market Manager: $e');
+      logger.e('Error assigning $role: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error assigning Market Manager: $e')),
+          SnackBar(content: Text('Error assigning $role: $e')),
         );
       }
     }
@@ -183,11 +200,45 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
     }
   }
 
-  void _showAssignMarketManagerDialog() {
+  void _showAssignUserRoleDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Assign Market Manager', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Assign User Role', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Assign Market Manager'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAssignRoleDialog('Market Manager');
+              },
+            ),
+            ListTile(
+              title: const Text('Assign Loan Manager'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAssignRoleDialog('Loan Manager');
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAssignRoleDialog(String role) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Assign $role', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Row(
           children: [
             Expanded(
@@ -220,7 +271,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
                 );
                 return;
               }
-              _assignMarketManager(_uidController.text);
+              _assignUserRole(_uidController.text, role);
               Navigator.pop(context);
               _uidController.clear();
             },
@@ -289,19 +340,6 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => FilterUsersScreen(cooperativeName: _cooperativeName!),
-      ),
-    );
-  }
-
-  void _showMessagesScreen() {
-    if (_cooperativeName == null) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => messaging.MessagingScreen(
-          cooperativeName: _cooperativeName!,
-          initialChat: '${_cooperativeName!.replaceAll(' ', '_')}_Management',
-        ),
       ),
     );
   }
@@ -392,11 +430,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
                       logger.e('Error in collection stats for $collection: ${snapshot.error}');
                       return ListTile(
                         title: Text(
-                          collection == 'users'
-                              ? 'Users'
-                              : collection == 'marketmanagers'
-                                  ? 'Market Managers'
-                                  : 'Coffee Prices',
+                          _collectionDisplayNames[collection] ?? collection,
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         trailing: const Text('Error', style: TextStyle(fontSize: 16, color: Colors.red)),
@@ -417,11 +451,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
                       },
                       child: ListTile(
                         title: Text(
-                          collection == 'users'
-                              ? 'Users'
-                              : collection == 'marketmanagers'
-                                  ? 'Market Managers'
-                                  : 'Coffee Prices',
+                          _collectionDisplayNames[collection] ?? collection,
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         trailing: Text('$count', style: const TextStyle(fontSize: 16, color: Colors.brown)),
@@ -442,9 +472,8 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
       physics: const NeverScrollableScrollPhysics(),
       childAspectRatio: 1.5,
       children: [
-        _buildOptionCard('Assign Market Manager', Icons.person_add, () => _showAssignMarketManagerDialog()),
+        _buildOptionCard('Assign User Role', Icons.person_add, () => _showAssignUserRoleDialog()),
         _buildOptionCard('Filter Users', Icons.filter_list, () => _showFilterUsersScreen()),
-        _buildOptionCard('Messages', Icons.message, () => _showMessagesScreen()),
       ],
     );
   }

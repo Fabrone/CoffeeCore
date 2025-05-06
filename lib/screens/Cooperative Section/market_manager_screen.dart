@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
-import 'package:coffeecore/screens/messaging_screen.dart';
 
 class MarketManagerScreen extends StatefulWidget {
   const MarketManagerScreen({super.key});
@@ -11,8 +10,7 @@ class MarketManagerScreen extends StatefulWidget {
   State<MarketManagerScreen> createState() => _MarketManagerScreenState();
 }
 
-class _MarketManagerScreenState extends State<MarketManagerScreen>
-    with SingleTickerProviderStateMixin {
+class _MarketManagerScreenState extends State<MarketManagerScreen> with SingleTickerProviderStateMixin {
   static final Color coffeeBrown = Colors.brown[700]!;
   final logger = Logger(printer: PrettyPrinter());
   String? _cooperativeName;
@@ -46,9 +44,7 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
     }
 
     try {
-      QuerySnapshot coopSnapshot = await FirebaseFirestore.instance
-          .collection('cooperatives')
-          .get();
+      QuerySnapshot coopSnapshot = await FirebaseFirestore.instance.collection('cooperatives').get();
       for (var coopDoc in coopSnapshot.docs) {
         String coopId = coopDoc.id;
         DocumentSnapshot managerDoc = await FirebaseFirestore.instance
@@ -127,19 +123,6 @@ class _MarketManagerScreenState extends State<MarketManagerScreen>
                       Icons.add_circle_outline,
                       () async {
                         await _showAddVarietyDialog(context);
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    _buildOptionCard(
-                      'Messages',
-                      Icons.message,
-                      () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MessagingScreen(cooperativeName: _cooperativeName!),
-                          ),
-                        );
                       },
                     ),
                   ],
@@ -463,9 +446,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
         elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('${formattedCoopId}_coffeeprices')
-            .snapshots(),
+        stream: FirebaseFirestore.instance.collection('${formattedCoopId}_coffeeprices').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
