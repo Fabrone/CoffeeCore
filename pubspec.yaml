@@ -45,6 +45,7 @@ dependencies:
   open_file: ^3.5.10
   share_plus: ^10.1.4
   intl: ^0.20.2
+  rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:
