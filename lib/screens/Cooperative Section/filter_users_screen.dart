@@ -40,8 +40,6 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
       'county',
       'constituency',
       'ward',
-      'phoneNumber',
-      'isDisabled',
     ];
     for (final field in fields) {
       try {
@@ -412,9 +410,6 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
                                           DropdownMenuItem(value: 'county', child: Text('County')),
                                           DropdownMenuItem(value: 'constituency', child: Text('Constituency')),
                                           DropdownMenuItem(value: 'ward', child: Text('Ward')),
-                                          DropdownMenuItem(value: 'phoneNumber', child: Text('Phone Number')),
-                                          DropdownMenuItem(value: 'role', child: Text('Role')),
-                                          DropdownMenuItem(value: 'isDisabled', child: Text('Status')),
                                         ],
                                         onChanged: (value) => setState(() => _sortField = value!),
                                         style: const TextStyle(color: Colors.black),
@@ -440,9 +435,6 @@ class _FilterUsersScreenState extends State<FilterUsersScreen> {
                                                 'county',
                                                 'constituency',
                                                 'ward',
-                                                'phoneNumber',
-                                                'role',
-                                                'isDisabled'
                                               ].indexOf(_sortField),
                                               sortAscending: _sortAscending,
                                               columns: const [
