@@ -1,6 +1,7 @@
 import 'package:coffeecore/screens/Cooperative%20Section/coffee_prices.dart';
 import 'package:coffeecore/screens/Cooperative%20Section/coop_admin_management_screen.dart';
 import 'package:coffeecore/screens/Cooperative%20Section/market_manager_screen.dart';
+import 'package:coffeecore/screens/Farm%20Management/coffee_management_screen.dart';
 import 'package:coffeecore/screens/Farm%20Management/farm_management_screen.dart';
 import 'package:coffeecore/screens/Field%20Data/coffee_soil_home_page.dart';
 import 'package:coffeecore/screens/admin/admin_management_screen.dart';
@@ -663,7 +664,7 @@ class _HomePageState extends State<HomePage> {
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
         BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Manuals'),
-        BottomNavigationBarItem(icon: Icon(Icons.coffee), label: 'Coffee'),
+        BottomNavigationBarItem(icon: Icon(Icons.supervisor_account), label: 'F-Management'),
         BottomNavigationBarItem(icon: Icon(Icons.article), label: 'Tips'),
       ],
       currentIndex: _selectedIndex,
@@ -672,14 +673,34 @@ class _HomePageState extends State<HomePage> {
       onTap: (index) {
         setState(() {
           _selectedIndex = index;
-          if (index == 2) {
+        });
+        switch (index) {
+          case 0:
+            // Already on Home (dashboard)
             Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (context) => const FarmManagementScreen()),
+              MaterialPageRoute(builder: (context) => const HomePage()),
             );
-          }
-        });
+            break;
+          case 1:
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ManualsScreen()),
+            );
+            break;
+          case 2:
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CoffeeManagementScreen()),
+            );
+            break;
+          case 3:
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const LearnCoffeeFarming()),
+            );
+            break;
+        }
       },
     );
   }

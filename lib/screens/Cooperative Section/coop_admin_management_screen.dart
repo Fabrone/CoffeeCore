@@ -634,7 +634,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
         BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Manuals'),
-        BottomNavigationBarItem(icon: Icon(Icons.coffee), label: 'Coffee'),
+        BottomNavigationBarItem(icon: Icon(Icons.supervisor_account), label: 'F-Management'),
         BottomNavigationBarItem(icon: Icon(Icons.article), label: 'Tips'),
       ],
       currentIndex: _selectedIndex,
@@ -646,7 +646,11 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
         });
         switch (index) {
           case 0:
-            // Already on Home (dashboard)
+            // Already on Home 
+             Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CoopAdminManagementScreen()),
+            );
             break;
           case 1:
             Navigator.push(
