@@ -28,8 +28,8 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
     'marketmanagers': 'Market Managers',
     'loanmanagers': 'Loan Managers',
     'coffeeprices': 'Coffee Prices',
-    'coffee_disease_interventions': 'Disease Interventions',
-    'coffee_pest_interventions': 'Pest Interventions',
+    'coffee_disease_interventions': 'Disease Data',
+    'coffee_pest_interventions': 'Pest Data',
     'coffee_soil_data': 'Soil Data',
   };
   final List<String> _allCollections = [

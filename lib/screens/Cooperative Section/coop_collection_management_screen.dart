@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:intl/intl.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:excel/excel.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io';
 
 class CoopCollectionManagementScreen extends StatefulWidget {
   final String cooperativeName;
@@ -28,8 +32,8 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
     'marketmanagers': 'Market Managers',
     'loanmanagers': 'Loan Managers',
     'coffeeprices': 'Coffee Prices',
-    'coffee_disease_interventions': 'Disease Interventions',
-    'coffee_pest_interventions': 'Pest Interventions',
+    'coffee_disease_interventions': 'Disease Data',
+    'coffee_pest_interventions': 'Pest Data',
     'coffee_soil_data': 'Soil Data',
   };
   final List<String> _excludedFields = [
@@ -57,7 +61,7 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
         builder: (dialogContext) => AlertDialog(
           title: const Text('Confirm Deletion'),
           content: Text(
-            'Are you sure you want to remove this ${_collectionDisplayNames[widget.collectionName]!.toLowerCase().replaceAll('s', '')}?',
+            'Are you sure you want to remove this ${_collectionDisplayNames[widget.collectionName]!.toLowerCase().replaceAll(' data', '')}?',
           ),
           actions: [
             TextButton(
@@ -78,7 +82,7 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
             : '${widget.cooperativeName.replaceAll(' ', '_')}_${widget.collectionName}';
         await FirebaseFirestore.instance.collection(collectionPath).doc(docId).delete();
         await _logActivity(
-          'Removed ${_collectionDisplayNames[widget.collectionName]!.toLowerCase().replaceAll('s', '')} $docId from cooperative ${widget.cooperativeName}',
+          'Removed ${_collectionDisplayNames[widget.collectionName]!.toLowerCase().replaceAll(' data', '')} $docId from cooperative ${widget.cooperativeName}',
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -147,7 +151,7 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Edit ${_collectionDisplayNames[widget.collectionName]!.replaceAll('s', '')}'),
+        title: Text('Edit ${_collectionDisplayNames[widget.collectionName]!.replaceAll(' Data', '')}'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -222,7 +226,7 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
         }
         await FirebaseFirestore.instance.collection(collectionPath).doc(docId).update(updateData);
         await _logActivity(
-          'Updated ${_collectionDisplayNames[widget.collectionName]!.toLowerCase().replaceAll('s', '')} $docId in cooperative ${widget.cooperativeName}',
+          'Updated ${_collectionDisplayNames[widget.collectionName]!.toLowerCase().replaceAll(' data', '')} $docId in cooperative ${widget.cooperativeName}',
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -300,6 +304,173 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
     }
   }
 
+  Future<void> _exportToExcel(List<QueryDocumentSnapshot> docs) async {
+    try {
+      // Determine output path
+      String outputPath;
+      try {
+        final downloadsDir = await getDownloadsDirectory();
+        outputPath = downloadsDir?.path ?? '/storage/emulated/0/Download';
+      } catch (e) {
+        logger.w('Failed to get Downloads directory: $e');
+        outputPath = '/storage/emulated/0/Download';
+      }
+
+      if (Platform.isAndroid) {
+        outputPath = '/storage/emulated/0/Download';
+      } else if (Platform.isIOS) {
+        outputPath = (await getApplicationDocumentsDirectory()).path;
+      }
+
+      // Create Excel file
+      var excel = Excel.createExcel();
+      Sheet sheet = excel[_collectionDisplayNames[widget.collectionName] ?? 'Data'];
+
+      // Define fields
+      final firstDocData = docs.isNotEmpty ? docs.first.data() as Map<String, dynamic> : {};
+      List<String> fields = [];
+
+      if (widget.collectionName == 'coffee_soil_data') {
+        fields = [
+          'stage',
+          'structureType',
+          'plotId',
+          'ph',
+          'nitrogen',
+          'phosphorus',
+          'potassium',
+          'magnesium',
+          'calcium',
+          'interventionMethod',
+          'interventionQuantity',
+          'interventionUnit',
+          'interventionFollowUpDate',
+          'timestamp',
+        ];
+      } else if (['coffee_disease_interventions', 'coffee_pest_interventions'].contains(widget.collectionName)) {
+        fields = firstDocData.keys
+            .where((key) => !_excludedFields.contains(key) && key != 'fullName')
+            .toList()
+            .cast<String>();
+      } else if (widget.collectionName == 'coffeeprices') {
+        fields = ['variety', 'price', 'timestamp'];
+      } else {
+        fields = firstDocData.keys
+            .where((key) => !_excludedFields.contains(key) && key != 'fullName')
+            .toList()
+            .cast<String>();
+      }
+
+      if (fields.isEmpty) {
+        fields = ['unknown'];
+      }
+
+      // Write headers
+      List<String> headers = ['Full Name', ...fields];
+      if (widget.collectionName == 'coffeeprices') {
+        headers = ['Variety', ...fields, 'Updated By'];
+      }
+      sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
+
+      // Prepare data
+      List<Map<String, dynamic>> exportData = [];
+      for (var doc in docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final docId = doc.id;
+
+        // Fetch full name
+        final fullName = widget.collectionName == 'coffeeprices'
+            ? (data['variety'] ?? 'N/A')
+            : await _fetchUserName(data['userId'] ?? docId);
+
+        // Prepare row data
+        Map<String, dynamic> rowData = {
+          'fullName': fullName,
+        };
+
+        for (var field in fields) {
+          if (field == 'timestamp' || field == 'interventionFollowUpDate') {
+            rowData[field] = data[field] != null
+                ? _dateFormat.format((data[field] as Timestamp).toDate())
+                : 'N/A';
+          } else if (field == 'price') {
+            rowData[field] = (data[field] as num?)?.toStringAsFixed(2) ?? 'N/A';
+          } else {
+            rowData[field] = data[field]?.toString() ?? 'N/A';
+          }
+        }
+
+        if (widget.collectionName == 'coffeeprices') {
+          final updatedBy = await _fetchUserName(data['updatedBy'] ?? '');
+          rowData['updatedBy'] = updatedBy;
+        }
+
+        exportData.add(rowData);
+      }
+
+      // Write data to Excel
+      for (var data in exportData) {
+        List<TextCellValue> row = [
+          TextCellValue(data['fullName']),
+          ...fields.map((field) => TextCellValue(data[field])),
+        ];
+        if (widget.collectionName == 'coffeeprices') {
+          row.add(TextCellValue(data['updatedBy']));
+        }
+        sheet.appendRow(row);
+      }
+
+      // Generate file name with timestamp
+      String timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+      String fileName = '${_collectionDisplayNames[widget.collectionName]}_$timestamp.xlsx';
+      String fullPath = '${outputPath.replaceAll(RegExp(r'/+$'), '')}/$fileName';
+
+      // Save file
+      File excelFile = File(fullPath);
+      await excelFile.create(recursive: true);
+      await excelFile.writeAsBytes(excel.encode()!);
+
+      // Log activity
+      await _logActivity(
+        'Exported ${_collectionDisplayNames[widget.collectionName]!.toLowerCase()} to Excel file $fileName in cooperative ${widget.cooperativeName}',
+      );
+
+      // Show success message with share option
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Excel saved to Downloads: $fileName'),
+            action: SnackBarAction(
+              label: 'Share',
+              onPressed: () async {
+                try {
+                  await Share.shareXFiles(
+                    [XFile(fullPath)],
+                    text: '${_collectionDisplayNames[widget.collectionName]} Export: $fileName',
+                  );
+                } catch (e) {
+                  logger.e('Error sharing file: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error sharing file: $e')),
+                    );
+                  }
+                }
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      logger.e('Error exporting to Excel: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving Excel: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     String collectionPath = _globalCollections.contains(widget.collectionName)
@@ -309,7 +480,7 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Manage $title',
+          title,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.brown[700],
@@ -339,6 +510,28 @@ class _CoopCollectionManagementScreenState extends State<CoopCollectionManagemen
                     onPressed: () => setState(() => _sortAscending = !_sortAscending),
                   ),
                 ],
+              ),
+            ),
+          if (_globalCollections.contains(widget.collectionName))
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.download),
+                label: Text('Export $title to Excel'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.brown[700],
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  String collectionPath = _globalCollections.contains(widget.collectionName)
+                      ? widget.collectionName
+                      : '${widget.cooperativeName.replaceAll(' ', '_')}_${widget.collectionName}';
+                  final snapshot = await FirebaseFirestore.instance
+                      .collection(collectionPath)
+                      .orderBy('timestamp', descending: !_sortAscending)
+                      .get();
+                  await _exportToExcel(snapshot.docs);
+                },
               ),
             ),
           Expanded(
