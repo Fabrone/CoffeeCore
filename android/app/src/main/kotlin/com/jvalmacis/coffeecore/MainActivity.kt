@@ -1,4 +1,4 @@
-package com.example.coffeecore
+package com.jvalmacis.coffeecore
 
 import io.flutter.embedding.android.FlutterActivity
 
