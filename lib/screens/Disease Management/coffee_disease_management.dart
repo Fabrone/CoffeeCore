@@ -44,6 +44,7 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
     ],
   };
 
+  // Updated disease details with lifecycle images
   final Map<String, Map<String, dynamic>> _diseaseDetails = {
     'Coffee Leaf Rust': {
       'description': 'A fungal disease that primarily affects the leaves of coffee plants.',
@@ -53,6 +54,12 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
       'biologicalControls': ['Resistant varieties (e.g., SL28)'],
       'possibleCauses': ['High humidity', 'Warm temperatures (20-28°C)', 'Dense foliage'],
       'preventiveMeasures': ['Improve air circulation', 'Apply mulch', 'Use resistant varieties'],
+      'lifecycleImages': [
+        'assets/diseases/coffee_leaf_rust1.png',
+        'assets/diseases/coffee_leaf_rust2.png',
+        'assets/diseases/coffee_leaf_rust3.png',
+        'assets/diseases/coffee_leaf_rust4.png',
+      ],
     },
     'Coffee Wilt Disease': {
       'description': 'A soil-borne fungal infection that causes rapid wilting and death of coffee plants.',
@@ -62,6 +69,12 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
       'biologicalControls': ['Soil sterilization'],
       'possibleCauses': ['Wet soil', 'Poor drainage', 'Contaminated tools'],
       'preventiveMeasures': ['Improve drainage', 'Sanitize tools', 'Avoid overwatering'],
+      'lifecycleImages': [
+        'assets/diseases/coffee_wilt_disease1.png',
+        'assets/diseases/coffee_wilt_disease2.png',
+        'assets/diseases/coffee_wilt_disease3.png',
+        'assets/diseases/coffee_wilt_disease4.png',
+      ],
     },
     'Coffee Berry Disease': {
       'description': 'A fungal disease that causes dark lesions on coffee berries.',
@@ -71,6 +84,16 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
       'biologicalControls': [],
       'possibleCauses': ['High rainfall', 'Warm temperatures', 'Poor sanitation'],
       'preventiveMeasures': ['Regular pruning', 'Remove fallen berries', 'Improve air flow'],
+      'lifecycleImages': [
+        'assets/diseases/coffee_berry_disease1.png',
+        'assets/diseases/coffee_berry_disease2.png',
+        'assets/diseases/coffee_berry_disease3.png',
+        'assets/diseases/coffee_berry_disease4.png',
+        'assets/diseases/coffee_berry_disease5.png',
+        'assets/diseases/coffee_berry_disease6.png',
+        'assets/diseases/coffee_berry_disease7.png',
+        'assets/diseases/coffee_berry_disease8.png',
+      ],
     },
     'Cercospora Leaf Spot': {
       'description': 'A fungal disease that affects coffee leaves.',
@@ -80,6 +103,12 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
       'biologicalControls': [],
       'possibleCauses': ['High humidity', 'Overcrowded plants', 'Nutrient deficiency'],
       'preventiveMeasures': ['Balance fertilization', 'Prune regularly', 'Avoid overhead watering'],
+      'lifecycleImages': [
+        'assets/diseases/cercospora_leaf_spot1.png',
+        'assets/diseases/cercospora_leaf_spot2.png',
+        'assets/diseases/cercospora_leaf_spot3.png',
+        'assets/diseases/cercospora_leaf_spot4.png',
+      ],
     },
     'Brown Eye Spot': {
       'description': 'A form of Cercospora disease affecting coffee plants.',
@@ -89,6 +118,12 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
       'biologicalControls': [],
       'possibleCauses': ['Wet conditions', 'Poor air circulation', 'Nutrient imbalance'],
       'preventiveMeasures': ['Improve ventilation', 'Monitor soil nutrients', 'Remove debris'],
+      'lifecycleImages': [
+        'assets/diseases/brown_eye_spot1.png',
+        'assets/diseases/brown_eye_spot2.png',
+        'assets/diseases/brown_eye_spot3.png',
+        'assets/diseases/brown_eye_spot4.png',
+      ],
     },
     'Anthracnose': {
       'description': 'A fungal disease that affects coffee fruits, causing lesions and decay.',
@@ -98,6 +133,14 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
       'biologicalControls': [],
       'possibleCauses': ['High rainfall', 'Warm weather', 'Injured fruit'],
       'preventiveMeasures': ['Harvest carefully', 'Sanitize tools', 'Prune affected areas'],
+      'lifecycleImages': [
+        'assets/diseases/anthracnose1.png',
+        'assets/diseases/anthracnose2.png',
+        'assets/diseases/anthracnose3.png',
+        'assets/diseases/anthracnose4.png',
+        'assets/diseases/anthracnose5.png',
+        'assets/diseases/anthracnose6.png',
+      ],
     },
     'Phytophthora Root Rot': {
       'description': 'A waterborne pathogen that attacks the roots of coffee plants, causing rot.',
@@ -107,6 +150,15 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
       'biologicalControls': [],
       'possibleCauses': ['Excessive water', 'Poor drainage', 'High rainfall'],
       'preventiveMeasures': ['Improve soil drainage', 'Avoid planting in low areas', 'Mulch roots'],
+      'lifecycleImages': [
+        'assets/diseases/phytophthora_root_rot1.png',
+        'assets/diseases/phytophthora_root_rot2.png',
+        'assets/diseases/phytophthora_root_rot3.png',
+        'assets/diseases/phytophthora_root_rot4.png',
+        'assets/diseases/phytophthora_root_rot5.png',
+        'assets/diseases/phytophthora_root_rot6.png',
+        'assets/diseases/phytophthora_root_rot7.png',
+      ],
     },
     'Bacterial Blight': {
       'description': 'A bacterial infection that affects the coffee plant.',
@@ -116,6 +168,12 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
       'biologicalControls': [],
       'possibleCauses': ['Wet conditions', 'Wounds from pruning', 'Contaminated tools'],
       'preventiveMeasures': ['Sanitize equipment', 'Avoid overhead irrigation', 'Prune in dry weather'],
+      'lifecycleImages': [
+        'assets/diseases/bacterial_blight1.png',
+        'assets/diseases/bacterial_blight2.png',
+        'assets/diseases/bacterial_blight3.png',
+        'assets/diseases/bacterial_blight4.png',
+      ],
     },
     'Coffee Sooty Mold': {
       'description': 'A fungal disease caused by mold growing on honeydew from sap-sucking insects.',
@@ -125,6 +183,15 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
       'biologicalControls': [],
       'possibleCauses': ['Presence of pests (e.g., mealybugs)', 'High humidity', 'Poor ventilation'],
       'preventiveMeasures': ['Control pest populations', 'Improve air circulation', 'Clean leaves'],
+      'lifecycleImages': [
+        'assets/diseases/coffee_sooty_mold1.png',
+        'assets/diseases/coffee_sooty_mold2.png',
+        'assets/diseases/coffee_sooty_mold3.png',
+        'assets/diseases/coffee_sooty_mold4.png',
+        'assets/diseases/coffee_sooty_mold5.png',
+        'assets/diseases/coffee_sooty_mold6.png',
+        'assets/diseases/coffee_sooty_mold7.png',
+      ],
     },
     'Fusarium Root Rot': {
       'description': 'A soil-borne fungal disease that attacks the roots and lower stems of coffee plants.',
@@ -134,6 +201,16 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
       'biologicalControls': [],
       'possibleCauses': ['Wet soil', 'Poor drainage', 'Contaminated soil'],
       'preventiveMeasures': ['Enhance drainage', 'Rotate crops', 'Remove infected plants'],
+      'lifecycleImages': [
+        'assets/diseases/fusarium_root_rot1.png',
+        'assets/diseases/fusarium_root_rot2.png',
+        'assets/diseases/fusarium_root_rot3.png',
+        'assets/diseases/fusarium_root_rot4.png',
+        'assets/diseases/fusarium_root_rot5.png',
+        'assets/diseases/fusarium_root_rot6.png',
+        'assets/diseases/fusarium_root_rot7.png',
+        'assets/diseases/fusarium_root_rot8.png',
+      ],
     },
   };
 
@@ -170,6 +247,7 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
           biologicalControls: List<String>.from(_diseaseDetails[_selectedDisease!]!['biologicalControls']),
           possibleCauses: List<String>.from(_diseaseDetails[_selectedDisease!]!['possibleCauses']),
           preventiveMeasures: List<String>.from(_diseaseDetails[_selectedDisease!]!['preventiveMeasures']),
+          lifecycleImages: List<String>.from(_diseaseDetails[_selectedDisease!]!['lifecycleImages']), // Added this line
         );
       });
     }
@@ -190,7 +268,6 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
   @override
   Widget build(BuildContext context) {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Coffee Disease Management', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -221,6 +298,11 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
                   _showDiseaseDetails = false;
                 });
               }),
+              // Added image carousel display
+              if (_diseaseData != null) ...[
+                const SizedBox(height: 16),
+                _buildLifecycleCarousel(_diseaseData!.lifecycleImages),
+              ],
               const SizedBox(height: 16),
               GestureDetector(
                 onTap: () {
@@ -320,6 +402,41 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
             filled: true,
             fillColor: Colors.white,
           ),
+        ),
+      ),
+    );
+  }
+
+  // Added lifecycle carousel method (same as pest section)
+  Widget _buildLifecycleCarousel(List<String> images) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Disease Images', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 150,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: images.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Image.asset(
+                      images[index],
+                      width: 120,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, size: 120),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

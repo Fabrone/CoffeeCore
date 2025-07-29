@@ -67,6 +67,7 @@ flutter:
     #- assets/coffee-plant.png
     - assets/
     - assets/pests/
+    - assets/diseases/
 
 flutter_launcher_icons:
   android: true
