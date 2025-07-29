@@ -61,6 +61,10 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['Warm temperatures (25-30°C)', 'High humidity', 'Poor sanitation'],
       'preventiveMeasures': ['Regular harvesting', 'Sanitation of fallen cherries', 'Shade management'],
       'lifecycleImages': [
+        'assets/pests/coffee_berry_borer1.png',
+        'assets/pests/coffee_berry_borer2.png',
+        'assets/pests/coffee_berry_borer3.png',
+        'assets/pests/coffee_berry_borer4.png',
         'assets/pests/coffee_berry_borer.png',
         'assets/pests/coffee_berry_borers.png',
       ],
@@ -74,11 +78,11 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['Warm, dry conditions', 'Overcrowded plants'],
       'preventiveMeasures': ['Monitor leaf health', 'Avoid dense planting'],
       'lifecycleImages': [
-        'assets/pests/leaf_miner_eggs.png',
-        'assets/pests/leaf_miner_cartepillars.png',
-        'assets/pests/leaf_miner_pupation_cocoon.png',
-        'assets/pests/leaf_miner_predatorwasp.png',
-        'assets/pests/leaf_miner_lesion.png'
+        'assets/pests/coffee_leaf_miner1.png',
+        'assets/pests/coffee_leaf_miner2.png',
+        'assets/pests/coffee_leaf_miner3.png',
+        'assets/pests/coffee_leaf_miner4.png',
+        'assets/pests/leaf_miner_lesion.png',
       ],
     },
     'Coffee Antestia Bug': {
@@ -90,9 +94,10 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['High rainfall', 'Poor pruning'],
       'preventiveMeasures': ['Regular pruning', 'Field hygiene'],
       'lifecycleImages': [
-        'assets/pests/antestia_bug.png',
-        'assets/pests/coffee_antestia_bug.png',
-        'assets/pests/coffee_antestia_bugs.png',
+        'assets/pests/coffee_antestia_bug1.png',
+        'assets/pests/coffee_antestia_bug2.png',
+        'assets/pests/coffee_antestia_bug3.png',
+        'assets/pests/coffee_antestia_bug4.png',
       ],
     },
     'Coffee Stem Borer': {
@@ -104,8 +109,10 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['High altitude', 'Old plants'],
       'preventiveMeasures': ['Remove infested branches', 'Plant health monitoring'],
       'lifecycleImages': [
-        'assets/pests/coffee_stem_borer_larva.jpg',
-        'assets/pests/coffee_stem_borer_adult.jpg',
+        'assets/pests/coffee_stem_borer1.png',
+        'assets/pests/coffee_stem_borer2.png',
+        'assets/pests/coffee_stem_borer3.png',
+        'assets/pests/coffee_stem_borer4.png',
       ],
     },
     'Root-Knot Nematodes': {
@@ -117,8 +124,9 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['Warm, moist soil', 'Continuous cropping'],
       'preventiveMeasures': ['Crop rotation', 'Soil solarization'],
       'lifecycleImages': [
-        'assets/pests/root_knot_nematodes_egg.jpg',
-        'assets/pests/root_knot_nematodes_adult.jpg',
+        'assets/pests/root_knot_nematodes1.png',
+        'assets/pests/root_knot_nematodes2.png',
+        'assets/pests/root_knot_nematodes3.png',
       ],
     },
     'White Flies': {
@@ -130,9 +138,10 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['Warm, humid conditions', 'Poor ventilation'],
       'preventiveMeasures': ['Encourage natural predators', 'Improve air circulation'],
       'lifecycleImages': [
-        'assets/pests/white_flies_egg.jpg',
-        'assets/pests/white_flies_nymph.jpg',
-        'assets/pests/white_flies_adult.jpg',
+        'assets/pests/white_flies1.png',
+        'assets/pests/white_flies2.png',
+        'assets/pests/white_flies3.png',
+        'assets/pests/white_flies4.png',
       ],
     },
     'Coffee Mealybug': {
@@ -144,8 +153,9 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['High humidity', 'Ant presence'],
       'preventiveMeasures': ['Control ant populations', 'Monitor plant health'],
       'lifecycleImages': [
-        'assets/pests/coffee_mealybug_nymph.jpg',
-        'assets/pests/coffee_mealybug_adult.jpg',
+        'assets/pests/coffee_mealybug1.png',
+        'assets/pests/coffee_mealybug2.png',
+        'assets/pests/coffee_mealybug3.png',
       ],
     },
     'Caterpillars': {
@@ -157,9 +167,10 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['Warm, wet conditions', 'Nearby host plants'],
       'preventiveMeasures': ['Remove debris', 'Monitor for eggs'],
       'lifecycleImages': [
-        'assets/pests/caterpillars_egg.jpg',
-        'assets/pests/caterpillars_larva.jpg',
-        'assets/pests/caterpillars_adult.jpg',
+        'assets/pests/caterpillar1.png',
+        'assets/pests/caterpillar2.png',
+        'assets/pests/caterpillar3.png',
+        'assets/pests/caterpillar4.png',
       ],
     },
     'Coffee Weevil': {
@@ -171,8 +182,12 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['High moisture in storage', 'Infested beans'],
       'preventiveMeasures': ['Dry beans thoroughly', 'Use airtight storage'],
       'lifecycleImages': [
-        'assets/pests/coffee_weevil_larva.jpg',
-        'assets/pests/coffee_weevil_adult.jpg',
+        'assets/pests/coffee_weevil1.png',
+        'assets/pests/coffee_weevil2.png',
+        'assets/pests/coffee_weevil3.png',
+        'assets/pests/coffee_weevil4.png',
+        'assets/pests/coffee_weevil5.png',
+        'assets/pests/coffee_weevil6.png',
       ],
     },
     'Ants': {
@@ -184,8 +199,10 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'possibleCauses': ['Presence of sap-sucking pests', 'Warm weather'],
       'preventiveMeasures': ['Control sap-sucking pests', 'Use ant barriers'],
       'lifecycleImages': [
-        'assets/pests/ants_worker.jpg',
-        'assets/pests/ants_queen.jpg',
+        'assets/pests/ants1.png',
+        'assets/pests/ants2.png',
+        'assets/pests/ants3.png',
+        'assets/pests/ants4.png',
       ],
     },
   };
@@ -391,7 +408,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Pest Lifecycle', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('Pest Images', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             SizedBox(
               height: 150,

@@ -57,14 +57,15 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/coffee_weather.jpg
-    - assets/coffee_field_data.jpg
-    - assets/coffee_pestdisease_management.jpg
-    - assets/coffee_funds_management.jpg
-    - assets/coffee_manuals.jpg
-    - assets/coffee_farming_tips.jpg
-    - assets/coffee_soil.jpg
-    - assets/coffee-plant.png
+    #- assets/coffee_weather.jpg
+    #- assets/coffee_field_data.jpg
+    #- assets/coffee_pestdisease_management.jpg
+    #- assets/coffee_funds_management.jpg
+    #- assets/coffee_manuals.jpg
+    #- assets/coffee_farming_tips.jpg
+    #- assets/coffee_soil.jpg
+    #- assets/coffee-plant.png
+    - assets/
     - assets/pests/
 
 flutter_launcher_icons:
