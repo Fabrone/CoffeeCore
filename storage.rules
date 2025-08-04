@@ -1,10 +1,33 @@
 rules_version = '2';
-
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null &&
+             firestore.exists(/databases/(default)/documents/Admins/$(request.auth.uid));
+    }
+
+    // Helper function to check if user is coop admin
+    function isCoopAdmin() {
+      return request.auth != null &&
+             firestore.exists(/databases/(default)/documents/CoopAdmins/$(request.auth.uid));
+    }
+
+    // Manuals directory - accessible to all authenticated users for reading
+    // Only admins and coop admins can upload
+    // Only admins can delete
+    match /manuals/{fileName} {
+      // Anyone authenticated can read/download manuals
+      allow read: if request.auth != null;
+      
+      // Only admins and coop admins can upload manuals
+      allow write: if request.auth != null && (isAdmin() || isCoopAdmin());
+      
+      // Only admins can delete manuals
+      allow delete: if isAdmin();
+    }
+
+    // Default deny all other paths
     match /{allPaths=**} {
       allow read, write: if false;
     }

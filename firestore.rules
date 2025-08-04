@@ -22,20 +22,35 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/$(coopId + '_marketmanagers')/$(request.auth.uid));
     }
 
-    function isCoopMember(coopId) {
-      return isAuthenticated() && (
-             exists(/databases/$(database)/documents/$(coopId + '_users')/$(request.auth.uid)) ||
-             isMarketManager(coopId) ||
-             isCoopAdmin(coopId)
-      );
-    }
-
     function isUserInCoop(coopId, userId) {
       return exists(/databases/$(database)/documents/$(coopId + '_users')/$(userId));
     }
 
     function getCoopAdminCooperative() {
       return get(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid)).data.cooperative;
+    }
+
+    function isAnyCoopAdmin() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid));
+    }
+
+    // Manuals collection - NEW
+    match /Manuals/{manualId} {
+      // Anyone authenticated can read manuals
+      allow read: if isAuthenticated();
+      
+      // Only Admins and CoopAdmins can create/upload manuals
+      allow create: if isAuthenticated() && (isAdmin() || isAnyCoopAdmin()) &&
+                    request.resource.data.userId == request.auth.uid;
+      
+      // Only Admins and CoopAdmins can update manuals they uploaded
+      allow update: if isAuthenticated() && 
+                    (isAdmin() || isAnyCoopAdmin()) &&
+                    resource.data.userId == request.auth.uid;
+      
+      // Only Admins can delete manuals
+      allow delete: if isAdmin();
     }
 
     // Admins collection
@@ -46,9 +61,9 @@ service cloud.firestore {
 
     // CoopAdmins collection
     match /CoopAdmins/{coopAdminId} {
-      allow read: if isAdmin() || 
-                   isCoopAdmin(get(/databases/$(database)/documents/CoopAdmins/$(coopAdminId)).data.cooperative) || 
-                   (isAuthenticated() && request.auth.uid == coopAdminId);
+      allow read: if isAdmin() ||
+                    isCoopAdmin(get(/databases/$(database)/documents/CoopAdmins/$(coopAdminId)).data.cooperative) ||
+                    (isAuthenticated() && request.auth.uid == coopAdminId);
       allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == coopAdminId);
     }
 
