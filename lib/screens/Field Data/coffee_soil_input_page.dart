@@ -57,7 +57,7 @@ class _CoffeeSoilInputPageState extends State<CoffeeSoilInputPage>
     final userId = FirebaseAuth.instance.currentUser!.uid;
     for (var plotId in _plotIds) {
       final snapshot = await FirebaseFirestore.instance
-          .collection('coffee_soil_data')
+          .collection('SoilData')
           .where('userId', isEqualTo: userId)
           .where('plotId', isEqualTo: plotId)
           .where('isDeleted', isEqualTo: false)
@@ -159,9 +159,16 @@ class _CoffeeSoilInputPageState extends State<CoffeeSoilInputPage>
           leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context)),
-          title: const Text('Soil Data Input',
+          title: const Text('Enhanced Soil Analysis',
               style: TextStyle(
-                  color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(4.0),
+            child: Container(
+              color: const Color(0xFF3A5F0B),
+              height: 4.0,
+            ),
+          ),
         ),
         backgroundColor: const Color(0xFFF5E8C7),
         body: _isLoading
@@ -177,7 +184,18 @@ class _CoffeeSoilInputPageState extends State<CoffeeSoilInputPage>
                         labelColor: const Color(0xFF4A2C2A),
                         unselectedLabelColor: Colors.black54,
                         indicatorColor: const Color(0xFF3A5F0B),
-                        tabs: _plotIds.map((plotId) => Tab(text: plotId)).toList(),
+                        tabs: _plotIds.map((plotId) => Tab(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(plotId),
+                              if (_plotHasData[plotId] == true) ...[
+                                const SizedBox(width: 4),
+                                const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                              ],
+                            ],
+                          ),
+                        )).toList(),
                       ),
                     ),
                   Expanded(
@@ -192,28 +210,38 @@ class _CoffeeSoilInputPageState extends State<CoffeeSoilInputPage>
                           )).toList(),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF0E4D7),
+                      border: Border(top: BorderSide(color: Color(0xFF3A5F0B), width: 2)),
+                    ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         if (_farmingScenario == 'multiple')
                           Expanded(
-                            child: ElevatedButton(
+                            child: ElevatedButton.icon(
                               onPressed: _showOnboardingDialog,
+                              icon: const Icon(Icons.settings),
+                              label: const Text('Redefine Structure'),
                               style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF4A2C2A),
-                                  foregroundColor: Colors.white),
-                              child: const Text('Redefine Structure'),
+                                backgroundColor: const Color(0xFF4A2C2A),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
                             ),
                           ),
+                        if (_farmingScenario == 'multiple') const SizedBox(width: 16),
                         Expanded(
-                          child: ElevatedButton(
+                          child: ElevatedButton.icon(
                             onPressed: _showFieldHistory,
+                            icon: const Icon(Icons.history),
+                            label: const Text('Soil History'),
                             style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4A2C2A),
-                                foregroundColor: Colors.white),
-                            child: const Text('Soil History'),
+                              backgroundColor: const Color(0xFF3A5F0B),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
                           ),
                         ),
                       ],

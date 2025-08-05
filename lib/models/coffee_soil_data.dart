@@ -10,10 +10,15 @@ class CoffeeSoilData {
   final double? potassium;
   final double? magnesium;
   final double? calcium;
+  final double? zinc;
+  final double? boron;
+  final int plantDensity;
   final String? interventionMethod;
   final String? interventionQuantity;
   final String? interventionUnit;
   final Timestamp? interventionFollowUpDate;
+  final Map<String, dynamic>? recommendations;
+  final bool saveWithRecommendations;
   final Timestamp timestamp;
   final String structureType;
   final bool isDeleted;
@@ -28,10 +33,15 @@ class CoffeeSoilData {
     this.potassium,
     this.magnesium,
     this.calcium,
+    this.zinc,
+    this.boron,
+    this.plantDensity = 1500,
     this.interventionMethod,
     this.interventionQuantity,
     this.interventionUnit,
     this.interventionFollowUpDate,
+    this.recommendations,
+    this.saveWithRecommendations = false,
     required this.timestamp,
     required this.structureType,
     this.isDeleted = false,
@@ -47,10 +57,15 @@ class CoffeeSoilData {
         'potassium': potassium,
         'magnesium': magnesium,
         'calcium': calcium,
+        'zinc': zinc,
+        'boron': boron,
+        'plantDensity': plantDensity,
         'interventionMethod': interventionMethod,
         'interventionQuantity': interventionQuantity,
         'interventionUnit': interventionUnit,
         'interventionFollowUpDate': interventionFollowUpDate,
+        'recommendations': recommendations,
+        'saveWithRecommendations': saveWithRecommendations,
         'timestamp': timestamp,
         'structureType': structureType,
         'isDeleted': isDeleted,
@@ -66,10 +81,15 @@ class CoffeeSoilData {
         potassium: map['potassium'] as double?,
         magnesium: map['magnesium'] as double?,
         calcium: map['calcium'] as double?,
+        zinc: map['zinc'] as double?,
+        boron: map['boron'] as double?,
+        plantDensity: map['plantDensity'] as int? ?? 1500,
         interventionMethod: map['interventionMethod'] as String?,
         interventionQuantity: map['interventionQuantity'] as String?,
         interventionUnit: map['interventionUnit'] as String?,
         interventionFollowUpDate: map['interventionFollowUpDate'] as Timestamp?,
+        recommendations: map['recommendations'] as Map<String, dynamic>?,
+        saveWithRecommendations: map['saveWithRecommendations'] as bool? ?? false,
         timestamp: map['timestamp'] as Timestamp,
         structureType: map['structureType'] as String,
         isDeleted: map['isDeleted'] as bool? ?? false,

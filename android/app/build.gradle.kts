@@ -35,7 +35,7 @@ android {
     defaultConfig {
         applicationId = "com.jvalmacis.coffeecore"
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35
         versionCode = 2
         versionName = "1.0.1"
     }

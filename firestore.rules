@@ -35,21 +35,36 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid));
     }
 
-    // Manuals collection - NEW
+    // SoilData collection - NEW ENHANCED COLLECTION
+    match /SoilData/{documentId} {
+      allow read: if isAuthenticated() &&
+                   (request.auth.uid == resource.data.userId ||
+                    isAdmin() ||
+                    (resource.data.userId != null &&
+                     isCoopAdmin(getCoopAdminCooperative()) &&
+                     isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
+      allow create: if isAuthenticated() &&
+                      request.auth.uid == request.resource.data.userId;
+      allow update: if isAuthenticated() &&
+                      (request.auth.uid == resource.data.userId ||
+                       isAdmin() ||
+                       (resource.data.userId != null &&
+                        isCoopAdmin(getCoopAdminCooperative()) &&
+                        isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
+      allow delete: if isAdmin() ||
+                      (resource.data.userId != null &&
+                       isCoopAdmin(getCoopAdminCooperative()) &&
+                       isUserInCoop(getCoopAdminCooperative(), resource.data.userId));
+    }
+
+    // Manuals collection
     match /Manuals/{manualId} {
-      // Anyone authenticated can read manuals
       allow read: if isAuthenticated();
-      
-      // Only Admins and CoopAdmins can create/upload manuals
       allow create: if isAuthenticated() && (isAdmin() || isAnyCoopAdmin()) &&
                     request.resource.data.userId == request.auth.uid;
-      
-      // Only Admins and CoopAdmins can update manuals they uploaded
       allow update: if isAuthenticated() && 
                     (isAdmin() || isAnyCoopAdmin()) &&
                     resource.data.userId == request.auth.uid;
-      
-      // Only Admins can delete manuals
       allow delete: if isAdmin();
     }
 
@@ -126,7 +141,7 @@ service cloud.firestore {
                                      isMarketManager(collection.replace('_coffeeprices', '')));
     }
 
-    // Coffee soil data
+    // Legacy coffee soil data - KEEP FOR BACKWARD COMPATIBILITY
     match /coffee_soil_data/{documentId} {
       allow read: if isAuthenticated() &&
                    (request.auth.uid == resource.data.userId ||
