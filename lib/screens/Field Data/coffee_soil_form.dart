@@ -34,7 +34,7 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
   final Map<String, bool> _expandedRecommendations = {};
   
   String _selectedStage = 'Establishment/Seedling';
-  int _plantDensity = 1500;
+  int _plantDensity = 1000;
   bool _isPerPlant = false;
   bool _saveWithRecommendations = false;
   
