@@ -876,7 +876,7 @@ class _ManualsScreenState extends State<ManualsScreen> {
 
   Widget _buildCategoryDropdown(double fontSize) {
     return DropdownButtonFormField<String>(
-      value: _selectedCategory,
+      initialValue: _selectedCategory,
       decoration: InputDecoration(
         labelText: 'Manual Category',
         border: OutlineInputBorder(

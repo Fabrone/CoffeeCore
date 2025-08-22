@@ -145,7 +145,7 @@ class RegistrationScreenState extends State<RegistrationScreen> {
                       filled: true,
                       fillColor: Colors.brown[50],
                     ),
-                    value: _county,
+                    initialValue: _county,
                     items: kenyaLocations.keys.map((county) => DropdownMenuItem(
                       value: county,
                       child: Text(county),
@@ -164,7 +164,7 @@ class RegistrationScreenState extends State<RegistrationScreen> {
                       filled: true,
                       fillColor: Colors.brown[50],
                     ),
-                    value: _constituency,
+                    initialValue: _constituency,
                     items: _currentConstituencies.map((constituency) => DropdownMenuItem(
                       value: constituency,
                       child: Text(constituency),
@@ -183,7 +183,7 @@ class RegistrationScreenState extends State<RegistrationScreen> {
                       filled: true,
                       fillColor: Colors.brown[50],
                     ),
-                    value: _ward,
+                    initialValue: _ward,
                     items: _currentWards.map((ward) => DropdownMenuItem(
                       value: ward,
                       child: Text(ward),

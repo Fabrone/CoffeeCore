@@ -45,7 +45,7 @@ class _CoffeeSoilSummaryPageState extends State<CoffeeSoilSummaryPage> {
             color: const Color(0xFFF0E4D7),
             padding: const EdgeInsets.all(16),
             child: DropdownButtonFormField<String>(
-              value: _selectedFilter,
+              initialValue: _selectedFilter,
               decoration: const InputDecoration(
                 labelText: 'Filter by',
                 border: OutlineInputBorder(),
@@ -731,7 +731,7 @@ class _CoffeeSoilSummaryPageState extends State<CoffeeSoilSummaryPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: selectedStage,
+                    initialValue: selectedStage,
                     decoration: const InputDecoration(labelText: 'Growth Stage'),
                     items: const [
                       'Establishment/Seedling',

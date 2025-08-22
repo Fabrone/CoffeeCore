@@ -386,7 +386,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
           onChanged: onChanged,
           decoration: InputDecoration(

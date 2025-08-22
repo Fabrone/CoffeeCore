@@ -181,7 +181,7 @@ class CoffeePricesWidgetState extends State<CoffeePricesWidget> {
                       return const Text('No cooperatives added yet.');
                     }
                     return DropdownButtonFormField<String>(
-                      value: _selectedCooperative,
+                      initialValue: _selectedCooperative,
                       items: snapshot.data!
                           .map((coop) => DropdownMenuItem(value: coop, child: Text(coop)))
                           .toList(),
@@ -217,7 +217,7 @@ class CoffeePricesWidgetState extends State<CoffeePricesWidget> {
                       return const Text('No varieties available for this cooperative.');
                     }
                     return DropdownButtonFormField<String>(
-                      value: _selectedCoffeeVariety,
+                      initialValue: _selectedCoffeeVariety,
                       items: varietySnapshot.data!
                           .map((variety) => DropdownMenuItem(value: variety, child: Text(variety)))
                           .toList(),

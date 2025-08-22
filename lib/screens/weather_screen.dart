@@ -202,7 +202,7 @@ class WeatherScreenState extends State<WeatherScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DropdownButtonFormField<String>(
-                value: _selectedActualWeather,
+                initialValue: _selectedActualWeather,
                 items: const [
                   DropdownMenuItem(value: 'sunny', child: Text('Sunny')),
                   DropdownMenuItem(value: 'rainy', child: Text('Rainy')),

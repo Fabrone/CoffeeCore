@@ -655,7 +655,7 @@ class _CoffeeSoilFormState extends State<CoffeeSoilForm> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: _selectedStage,
+                      initialValue: _selectedStage,
                       decoration: const InputDecoration(
                         labelText: 'Growth Stage',
                         border: OutlineInputBorder(),
