@@ -4,6 +4,7 @@ class CoffeeSoilData {
   final String userId;
   final String plotId;
   final String stage;
+  final String? soilType;
   final double? ph;
   final double? nitrogen;
   final double? phosphorus;
@@ -17,16 +18,17 @@ class CoffeeSoilData {
   final String? interventionQuantity;
   final String? interventionUnit;
   final Timestamp? interventionFollowUpDate;
+  final bool notificationTriggered;
   final Map<String, dynamic>? recommendations;
   final bool saveWithRecommendations;
   final Timestamp timestamp;
-  final String structureType;
   final bool isDeleted;
 
   CoffeeSoilData({
     required this.userId,
     required this.plotId,
     required this.stage,
+    this.soilType,
     this.ph,
     this.nitrogen,
     this.phosphorus,
@@ -40,10 +42,10 @@ class CoffeeSoilData {
     this.interventionQuantity,
     this.interventionUnit,
     this.interventionFollowUpDate,
+    this.notificationTriggered = false,
     this.recommendations,
     this.saveWithRecommendations = false,
     required this.timestamp,
-    required this.structureType,
     this.isDeleted = false,
   });
 
@@ -51,6 +53,7 @@ class CoffeeSoilData {
         'userId': userId,
         'plotId': plotId,
         'stage': stage,
+        'soilType': soilType,
         'ph': ph,
         'nitrogen': nitrogen,
         'phosphorus': phosphorus,
@@ -64,10 +67,10 @@ class CoffeeSoilData {
         'interventionQuantity': interventionQuantity,
         'interventionUnit': interventionUnit,
         'interventionFollowUpDate': interventionFollowUpDate,
+        'notificationTriggered': notificationTriggered,
         'recommendations': recommendations,
         'saveWithRecommendations': saveWithRecommendations,
         'timestamp': timestamp,
-        'structureType': structureType,
         'isDeleted': isDeleted,
       };
 
@@ -75,23 +78,24 @@ class CoffeeSoilData {
         userId: map['userId'] as String,
         plotId: map['plotId'] as String,
         stage: map['stage'] as String,
-        ph: map['ph'] as double?,
-        nitrogen: map['nitrogen'] as double?,
-        phosphorus: map['phosphorus'] as double?,
-        potassium: map['potassium'] as double?,
-        magnesium: map['magnesium'] as double?,
-        calcium: map['calcium'] as double?,
-        zinc: map['zinc'] as double?,
-        boron: map['boron'] as double?,
+        soilType: map['soilType'] as String?,
+        ph: map['ph'] is int ? (map['ph'] as int).toDouble() : map['ph'] as double?,
+        nitrogen: map['nitrogen'] is int ? (map['nitrogen'] as int).toDouble() : map['nitrogen'] as double?,
+        phosphorus: map['phosphorus'] is int ? (map['phosphorus'] as int).toDouble() : map['phosphorus'] as double?,
+        potassium: map['potassium'] is int ? (map['potassium'] as int).toDouble() : map['potassium'] as double?,
+        magnesium: map['magnesium'] is int ? (map['magnesium'] as int).toDouble() : map['magnesium'] as double?,
+        calcium: map['calcium'] is int ? (map['calcium'] as int).toDouble() : map['calcium'] as double?,
+        zinc: map['zinc'] is int ? (map['zinc'] as int).toDouble() : map['zinc'] as double?,
+        boron: map['boron'] is int ? (map['boron'] as int).toDouble() : map['boron'] as double?,
         plantDensity: map['plantDensity'] as int? ?? 1500,
         interventionMethod: map['interventionMethod'] as String?,
         interventionQuantity: map['interventionQuantity'] as String?,
         interventionUnit: map['interventionUnit'] as String?,
         interventionFollowUpDate: map['interventionFollowUpDate'] as Timestamp?,
+        notificationTriggered: map['notificationTriggered'] as bool? ?? false,
         recommendations: map['recommendations'] as Map<String, dynamic>?,
         saveWithRecommendations: map['saveWithRecommendations'] as bool? ?? false,
         timestamp: map['timestamp'] as Timestamp,
-        structureType: map['structureType'] as String,
         isDeleted: map['isDeleted'] as bool? ?? false,
       );
 }

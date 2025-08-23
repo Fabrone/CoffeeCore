@@ -34,10 +34,11 @@ android {
 
     defaultConfig {
         applicationId = "com.jvalmacis.coffeecore"
-        minSdk = 23
-        targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.2"
+        minSdk = flutter.minSdkVersion.toInt()
+        targetSdk = flutter.targetSdkVersion.toInt()
+        versionCode = 4
+        versionName = "1.0.3"
+        multiDexEnabled = true
     }
 
     signingConfigs {

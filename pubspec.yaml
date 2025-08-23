@@ -47,6 +47,9 @@ dependencies:
   intl: ^0.20.2
   rxdart: ^0.28.0
   dio: ^5.8.0+1
+  connectivity_plus: ^6.1.5
+  custom_radio_grouped_button: ^2.2.1
+  uuid: ^4.5.1
 
 dev_dependencies:
   flutter_test:
@@ -60,12 +63,6 @@ flutter:
   assets:
     #- assets/coffee_weather.jpg
     #- assets/coffee_field_data.jpg
-    #- assets/coffee_pestdisease_management.jpg
-    #- assets/coffee_funds_management.jpg
-    #- assets/coffee_manuals.jpg
-    #- assets/coffee_farming_tips.jpg
-    #- assets/coffee_soil.jpg
-    #- assets/coffee-plant.png
     - assets/
     - assets/pests/
     - assets/diseases/
