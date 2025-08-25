@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logger/logger.dart';
-//import 'constants.dart';
 
 class DataManager {
   final Logger _logger = Logger();
@@ -54,9 +53,6 @@ class DataManager {
   List<String> _pastCycles = [];
   String? _retrievedCycle;
 
-  // Predefined cycle names
-  static const List<String> predefinedCycleNames = ['Coffee Season'];
-
   DataManager({
     required this.context,
     required this.labourActivityController,
@@ -86,6 +82,36 @@ class DataManager {
   List<String> get pastCycles => _pastCycles;
   String? get retrievedCycle => _retrievedCycle;
 
+  // Helper function to safely parse numeric values
+  double _parseNumber(dynamic value, {double defaultValue = 0.0}) {
+    if (value == null) return defaultValue;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? defaultValue;
+    return defaultValue;
+  }
+
+  // Initialize default cycle data
+  void _initializeDefaultCycle() {
+    _logger.i('Initializing default cycle: Current Cycle');
+    _currentCycle = 'Current Cycle';
+    _pastCycles = [];
+    labourActivities = [];
+    mechanicalCosts = [];
+    inputCosts = [];
+    miscellaneousCosts = [];
+    revenues = [];
+    paymentHistory = [];
+    loanAmountController.text = '0';
+    interestRateController.text = '0';
+    loanInterestController.text = '0.00';
+    totalRepaymentController.text = '0.00';
+    remainingBalanceController.text = '0.00';
+    loanSourceController.text = '';
+    totalProductionCostController.text = '0.00';
+    profitLossController.text = '0.00';
+    _resetForm();
+  }
+
   Future<bool> hasShownStoragePopup() async {
     _prefs = await SharedPreferences.getInstance();
     return _prefs.getBool('hasShownStoragePopup') ?? false;
@@ -104,51 +130,139 @@ class DataManager {
     bool isFirstLaunch = _prefs.getBool('isFirstLaunch') ?? true;
     _currentCycle = _prefs.getString('currentCycle') ?? 'Current Cycle';
     _pastCycles = _prefs.getStringList('pastCycles') ?? [];
+
+    // Check if Firestore has data; if not, initialize default cycle
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      QuerySnapshot cyclesSnapshot = await _firestore
+          .collection('FarmData')
+          .doc(userId)
+          .collection('Cycles')
+          .get();
+      if (cyclesSnapshot.docs.isEmpty) {
+        _logger.i('No cycles found in Firestore, initializing default cycle');
+        _initializeDefaultCycle();
+        await _prefs.setString('currentCycle', _currentCycle);
+        await _prefs.setStringList('pastCycles', _pastCycles);
+        await _prefs.setBool('isFirstLaunch', true);
+        await syncToFirestore();
+      }
+    }
+
     _logger.i('Loaded from SharedPreferences: currentCycle=$_currentCycle, pastCycles=$_pastCycles, isFirstLaunch=$isFirstLaunch');
-    _loadCycleData(_currentCycle);
-    callback(isFirstLaunch, _retrievedCycle);
+    await loadCycleData(_currentCycle);
+    callback(isFirstLaunch, _currentCycle);
   }
 
-  void _loadCycleData(String cycle) {
+  Future<void> loadCycleData(String cycle) async {
     _logger.i('Loading cycle data for: $cycle');
-    labourActivities = (_prefs.getString('labourActivities_$cycle') != null)
-        ? List<Map<String, dynamic>>.from(jsonDecode(_prefs.getString('labourActivities_$cycle')!))
-        : [];
-    mechanicalCosts = (_prefs.getString('mechanicalCosts_$cycle') != null)
-        ? List<Map<String, dynamic>>.from(jsonDecode(_prefs.getString('mechanicalCosts_$cycle')!))
-        : [];
-    inputCosts = (_prefs.getString('inputCosts_$cycle') != null)
-        ? List<Map<String, dynamic>>.from(jsonDecode(_prefs.getString('inputCosts_$cycle')!))
-        : [];
-    miscellaneousCosts = (_prefs.getString('miscellaneousCosts_$cycle') != null)
-        ? List<Map<String, dynamic>>.from(jsonDecode(_prefs.getString('miscellaneousCosts_$cycle')!))
-        : [];
-    revenues = (_prefs.getString('revenues_$cycle') != null)
-        ? List<Map<String, dynamic>>.from(jsonDecode(_prefs.getString('revenues_$cycle')!))
-        : [];
-    paymentHistory = (_prefs.getString('paymentHistory_$cycle') != null)
-        ? List<Map<String, dynamic>>.from(jsonDecode(_prefs.getString('paymentHistory_$cycle')!))
-        : [];
-    _logger.d('Cycle data loaded: labourActivities=${labourActivities.length}, mechanicalCosts=${mechanicalCosts.length}, inputCosts=${inputCosts.length}, miscellaneousCosts=${miscellaneousCosts.length}, revenues=${revenues.length}, paymentHistory=${paymentHistory.length}');
-    _loadLoanData(cycle);
-    calculateTotalProductionCost();
+    try {
+      String? userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        // Try to load from Firestore first
+        DocumentSnapshot cycleDoc = await _firestore
+            .collection('FarmData')
+            .doc(userId)
+            .collection('Cycles')
+            .doc(cycle)
+            .get();
+        if (cycleDoc.exists) {
+          Map<String, dynamic> data = cycleDoc.data() as Map<String, dynamic>;
+          labourActivities = List<Map<String, dynamic>>.from(data['labourActivities'] ?? []);
+          mechanicalCosts = List<Map<String, dynamic>>.from(data['mechanicalCosts'] ?? []);
+          inputCosts = List<Map<String, dynamic>>.from(data['inputCosts'] ?? []);
+          miscellaneousCosts = List<Map<String, dynamic>>.from(data['miscellaneousCosts'] ?? []);
+          revenues = List<Map<String, dynamic>>.from(data['revenues'] ?? []);
+          paymentHistory = List<Map<String, dynamic>>.from(data['paymentHistory'] ?? []);
+          Map<String, dynamic> loanData = Map<String, dynamic>.from(data['loanData'] ?? {});
+
+          // Safely parse numeric fields
+          loanAmountController.text = _parseNumber(loanData['loanAmount']).toString();
+          interestRateController.text = _parseNumber(loanData['interestRate']).toString();
+          loanInterestController.text = _parseNumber(loanData['interest']).toStringAsFixed(2);
+          totalRepaymentController.text = _parseNumber(loanData['totalRepayment']).toStringAsFixed(2);
+          remainingBalanceController.text = _parseNumber(loanData['remainingBalance']).toStringAsFixed(2);
+          loanSourceController.text = loanData['loanSource']?.toString() ?? '';
+          totalProductionCostController.text = _parseNumber(data['totalProductionCost']).toStringAsFixed(2);
+          profitLossController.text = _parseNumber(data['profitLoss']).toStringAsFixed(2);
+
+          // Save to SharedPreferences for offline access
+          await _prefs.setString('labourActivities_$cycle', jsonEncode(labourActivities));
+          await _prefs.setString('mechanicalCosts_$cycle', jsonEncode(mechanicalCosts));
+          await _prefs.setString('inputCosts_$cycle', jsonEncode(inputCosts));
+          await _prefs.setString('miscellaneousCosts_$cycle', jsonEncode(miscellaneousCosts));
+          await _prefs.setString('revenues_$cycle', jsonEncode(revenues));
+          await _prefs.setString('paymentHistory_$cycle', jsonEncode(paymentHistory));
+          await _prefs.setString('loanData_$cycle', jsonEncode(loanData));
+          _logger.i('Loaded cycle data from Firestore for $cycle');
+        } else {
+          // Fallback to SharedPreferences or initialize default cycle
+          if (_prefs.getString('labourActivities_$cycle') != null) {
+            labourActivities = validateJsonList(_prefs.getString('labourActivities_$cycle') ?? '[]');
+            mechanicalCosts = validateJsonList(_prefs.getString('mechanicalCosts_$cycle') ?? '[]');
+            inputCosts = validateJsonList(_prefs.getString('inputCosts_$cycle') ?? '[]');
+            miscellaneousCosts = validateJsonList(_prefs.getString('miscellaneousCosts_$cycle') ?? '[]');
+            revenues = validateJsonList(_prefs.getString('revenues_$cycle') ?? '[]');
+            paymentHistory = validateJsonList(_prefs.getString('paymentHistory_$cycle') ?? '[]');
+            _loadLoanData(cycle);
+            _logger.i('Loaded cycle data from SharedPreferences for $cycle');
+          } else {
+            _logger.i('No data in SharedPreferences for $cycle, initializing default cycle');
+            _initializeDefaultCycle();
+            await _prefs.setString('currentCycle', _currentCycle);
+            await syncToFirestore();
+          }
+        }
+      } else {
+        // Load from SharedPreferences if no user is logged in
+        if (_prefs.getString('labourActivities_$cycle') != null) {
+          labourActivities = validateJsonList(_prefs.getString('labourActivities_$cycle') ?? '[]');
+          mechanicalCosts = validateJsonList(_prefs.getString('mechanicalCosts_$cycle') ?? '[]');
+          inputCosts = validateJsonList(_prefs.getString('inputCosts_$cycle') ?? '[]');
+          miscellaneousCosts = validateJsonList(_prefs.getString('miscellaneousCosts_$cycle') ?? '[]');
+          revenues = validateJsonList(_prefs.getString('revenues_$cycle') ?? '[]');
+          paymentHistory = validateJsonList(_prefs.getString('paymentHistory_$cycle') ?? '[]');
+          _loadLoanData(cycle);
+          _logger.i('Loaded cycle data from SharedPreferences for $cycle (no user logged in)');
+        } else {
+          _logger.i('No data in SharedPreferences for $cycle, initializing default cycle');
+          _initializeDefaultCycle();
+          await _prefs.setString('currentCycle', _currentCycle);
+        }
+      }
+      _currentCycle = cycle;
+      await _prefs.setString('currentCycle', _currentCycle);
+      // Ensure pastCycles includes currentCycle if it's not already there
+      if (!_pastCycles.contains(cycle) && cycle != 'Current Cycle') {
+        _pastCycles.add(cycle);
+        await _prefs.setStringList('pastCycles', _pastCycles);
+      }
+      calculateTotalProductionCost();
+      _logger.d('Cycle data loaded successfully for cycle: $cycle');
+      onDataChanged();
+    } catch (e, stackTrace) {
+      _logger.e('Error loading cycle data for $cycle: $e', error: e, stackTrace: stackTrace);
+      _initializeDefaultCycle();
+      await _prefs.setString('currentCycle', _currentCycle);
+      await _prefs.setStringList('pastCycles', _pastCycles);
+      calculateTotalProductionCost();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to load cycle data: $e')));
+      }
+    }
   }
 
   void calculateTotalProductionCost() {
     _logger.i('Calculating total production cost...');
-    double totalCost = 0;
-    for (var item in labourActivities) {
-      totalCost += double.tryParse(item['cost'] ?? '0') ?? 0;
-    }
-    for (var item in mechanicalCosts) {
-      totalCost += double.tryParse(item['cost'] ?? '0') ?? 0;
-    }
-    for (var item in inputCosts) {
-      totalCost += double.tryParse(item['cost'] ?? '0') ?? 0;
-    }
-    for (var item in miscellaneousCosts) {
-      totalCost += double.tryParse(item['cost'] ?? '0') ?? 0;
-    }
+    double totalCost = labourActivities.fold<double>(
+        0.0, (total, item) => total + (double.tryParse(item['cost'].toString()) ?? 0));
+    totalCost += mechanicalCosts.fold<double>(
+        0.0, (total, item) => total + (double.tryParse(item['cost'].toString()) ?? 0));
+    totalCost += inputCosts.fold<double>(
+        0.0, (total, item) => total + (double.tryParse(item['cost'].toString()) ?? 0));
+    totalCost += miscellaneousCosts.fold<double>(
+        0.0, (total, item) => total + (double.tryParse(item['cost'].toString()) ?? 0));
     totalProductionCostController.text = totalCost.toStringAsFixed(2);
     _logger.i('Total production cost: $totalCost');
     _calculateProfitLoss();
@@ -157,8 +271,8 @@ class DataManager {
   void _calculateProfitLoss() {
     _logger.i('Calculating profit/loss...');
     double totalCost = double.tryParse(totalProductionCostController.text) ?? 0;
-    double totalRevenue = revenues.fold(
-        0, (total, rev) => total + (double.tryParse(rev['amount'] ?? '0') ?? 0));
+    double totalRevenue = revenues.fold<double>(
+        0.0, (total, item) => total + (double.tryParse(item['amount'].toString()) ?? 0));
     double profitLoss = totalRevenue - totalCost;
     profitLossController.text = profitLoss.toStringAsFixed(2);
     _logger.i('Profit/Loss: $profitLoss');
@@ -171,8 +285,8 @@ class DataManager {
     double interest = (loanAmount * interestRate) / 100;
     double totalRepayment = loanAmount + interest;
 
-    double paymentsMade = paymentHistory.fold(
-        0.0, (total, payment) => total + (double.tryParse(payment['amount'] ?? '0') ?? 0));
+    double paymentsMade = paymentHistory.fold<double>(
+        0.0, (total, payment) => total + (double.tryParse(payment['amount'].toString()) ?? 0));
     double remainingBalance = totalRepayment - paymentsMade;
 
     loanInterestController.text = interest.toStringAsFixed(2);
@@ -185,39 +299,135 @@ class DataManager {
 
   void _saveLoanData(String cycle, double loanAmount, double interestRate, double interest, double totalRepayment, double remainingBalance) {
     _logger.i('Saving loan data for cycle: $cycle');
-    _prefs.setString(
-        'loanData_$cycle',
-        jsonEncode({
-          'loanAmount': loanAmount,
-          'interestRate': interestRate,
-          'interest': interest,
-          'totalRepayment': totalRepayment,
-          'remainingBalance': remainingBalance,
-          'loanSource': loanSourceController.text,
-        }));
-    _saveDataOnChange();
+    try {
+      final loanData = {
+        'loanAmount': loanAmount,
+        'interestRate': interestRate,
+        'interest': interest,
+        'totalRepayment': totalRepayment,
+        'remainingBalance': remainingBalance,
+        'loanSource': loanSourceController.text,
+      };
+      _prefs.setString('loanData_$cycle', jsonEncode(loanData));
+      _saveDataOnChange();
+      _logger.i('Loan data saved: $loanData');
+    } catch (e, stackTrace) {
+      _logger.e('Error saving loan data for $cycle: $e', error: e, stackTrace: stackTrace);
+    }
   }
 
   void _loadLoanData(String cycle) {
     _logger.i('Loading loan data for cycle: $cycle');
     String? savedLoanData = _prefs.getString('loanData_$cycle');
-    if (savedLoanData != null) {
-      Map<String, dynamic> loanData = jsonDecode(savedLoanData);
-      loanAmountController.text = (loanData['loanAmount'] ?? 0).toString();
-      interestRateController.text = (loanData['interestRate'] ?? 0).toString();
-      loanInterestController.text = (loanData['interest'] ?? 0).toStringAsFixed(2);
-      totalRepaymentController.text = (loanData['totalRepayment'] ?? 0).toStringAsFixed(2);
-      remainingBalanceController.text = (loanData['remainingBalance'] ?? (loanData['totalRepayment'] ?? 0)).toStringAsFixed(2);
-      loanSourceController.text = loanData['loanSource'] ?? '';
-      _logger.i('Loan data loaded: $loanData');
+    if (savedLoanData != null && savedLoanData.isNotEmpty) {
+      try {
+        dynamic decodedData = jsonDecode(savedLoanData);
+        Map<String, dynamic> loanData;
+        if (decodedData is String) {
+          loanData = jsonDecode(decodedData) as Map<String, dynamic>;
+        } else if (decodedData is Map) {
+          loanData = Map<String, dynamic>.from(decodedData);
+        } else {
+          throw FormatException('Invalid loan data format: $decodedData');
+        }
+
+        loanAmountController.text = _parseNumber(loanData['loanAmount']).toString();
+        interestRateController.text = _parseNumber(loanData['interestRate']).toString();
+        loanInterestController.text = _parseNumber(loanData['interest']).toStringAsFixed(2);
+        totalRepaymentController.text = _parseNumber(loanData['totalRepayment']).toStringAsFixed(2);
+        remainingBalanceController.text = _parseNumber(loanData['remainingBalance']).toStringAsFixed(2);
+        loanSourceController.text = loanData['loanSource']?.toString() ?? '';
+        _logger.i('Loan data loaded: $loanData');
+      } catch (e, stackTrace) {
+        _logger.e('Error decoding loan data for $cycle: $e', error: e, stackTrace: stackTrace);
+        loanAmountController.clear();
+        interestRateController.clear();
+        loanInterestController.clear();
+        totalRepaymentController.text = '0.00';
+        remainingBalanceController.text = '0.00';
+        loanSourceController.clear();
+      }
     } else {
       loanAmountController.clear();
       interestRateController.clear();
       loanInterestController.clear();
-      totalRepaymentController.clear();
-      remainingBalanceController.clear();
+      totalRepaymentController.text = '0.00';
+      remainingBalanceController.text = '0.00';
       loanSourceController.clear();
       _logger.i('No loan data found for cycle: $cycle');
+    }
+  }
+
+  Future<Map<String, dynamic>?> loadFromFirestore() async {
+    _logger.i('Starting loadFromFirestore...');
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      _logger.w('No user logged in. Cannot load from Firestore.');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log in to load data')));
+      }
+      return null;
+    }
+
+    _logger.i('User logged in with UID: $userId');
+    try {
+      DocumentSnapshot userDoc = await _firestore.collection('FarmData').doc(userId).get();
+      Map<String, dynamic> data = {};
+      if (userDoc.exists) {
+        data = userDoc.data() as Map<String, dynamic>? ?? {};
+        _currentCycle = data['currentCycle'] ?? 'Current Cycle';
+        _pastCycles = List<String>.from(data['pastCycles'] ?? []);
+        await _prefs.setString('currentCycle', _currentCycle);
+        await _prefs.setStringList('pastCycles', _pastCycles);
+        _logger.i('Updated local state: currentCycle=$_currentCycle, pastCycles=$_pastCycles');
+      }
+
+      QuerySnapshot cyclesSnapshot = await _firestore
+          .collection('FarmData')
+          .doc(userId)
+          .collection('Cycles')
+          .get();
+      Map<String, dynamic> cycles = {};
+      for (var doc in cyclesSnapshot.docs) {
+        String cycleName = doc.id;
+        cycles[cycleName] = doc.data() as Map<String, dynamic>;
+        await _prefs.setString('labourActivities_$cycleName', jsonEncode(cycles[cycleName]['labourActivities'] ?? []));
+        await _prefs.setString('mechanicalCosts_$cycleName', jsonEncode(cycles[cycleName]['mechanicalCosts'] ?? []));
+        await _prefs.setString('inputCosts_$cycleName', jsonEncode(cycles[cycleName]['inputCosts'] ?? []));
+        await _prefs.setString('miscellaneousCosts_$cycleName', jsonEncode(cycles[cycleName]['miscellaneousCosts'] ?? []));
+        await _prefs.setString('revenues_$cycleName', jsonEncode(cycles[cycleName]['revenues'] ?? []));
+        await _prefs.setString('paymentHistory_$cycleName', jsonEncode(cycles[cycleName]['paymentHistory'] ?? []));
+        await _prefs.setString('loanData_$cycleName', jsonEncode(cycles[cycleName]['loanData'] ?? {}));
+        _logger.i('Cycle data for $cycleName saved to SharedPreferences');
+      }
+
+      _pastCycles = cycles.keys.where((cycle) => cycle != _currentCycle).toList();
+      await _prefs.setStringList('pastCycles', _pastCycles);
+
+      // If no cycles exist, initialize default cycle
+      if (cycles.isEmpty) {
+        _initializeDefaultCycle();
+        await _prefs.setString('currentCycle', _currentCycle);
+        await _prefs.setStringList('pastCycles', _pastCycles);
+        await syncToFirestore();
+      }
+
+      await loadCycleData(_currentCycle);
+      _logger.i('Data loaded from Firestore successfully');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Data loaded from Firestore successfully')));
+      }
+      onDataChanged();
+      return {'cycles': cycles};
+    } catch (e, stackTrace) {
+      _logger.e('Error loading from Firestore: $e', error: e, stackTrace: stackTrace);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to load data: $e')));
+      }
+      return null;
     }
   }
 
@@ -226,10 +436,6 @@ class DataManager {
     String? userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
       _logger.w('No user logged in. Cannot sync to Firestore.');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please log in to sync data')));
-      }
       return;
     }
 
@@ -238,26 +444,6 @@ class DataManager {
       WriteBatch batch = _firestore.batch();
       DocumentReference userDocRef = _firestore.collection('FarmData').doc(userId);
 
-      // Validate JSON data before syncing
-      Map<String, dynamic> cycleData = {
-        'labourActivities': _validateJson(jsonEncode(labourActivities)),
-        'mechanicalCosts': _validateJson(jsonEncode(mechanicalCosts)),
-        'inputCosts': _validateJson(jsonEncode(inputCosts)),
-        'miscellaneousCosts': _validateJson(jsonEncode(miscellaneousCosts)),
-        'revenues': _validateJson(jsonEncode(revenues)),
-        'paymentHistory': _validateJson(jsonEncode(paymentHistory)),
-        'loanData': _validateJson(jsonEncode({
-          'loanAmount': loanAmountController.text,
-          'interestRate': interestRateController.text,
-          'interest': loanInterestController.text,
-          'totalRepayment': totalRepaymentController.text,
-          'remainingBalance': remainingBalanceController.text,
-          'loanSource': loanSourceController.text,
-        })),
-      };
-      _logger.d('Cycle data for $_currentCycle: $cycleData');
-
-      // Save user-level data
       batch.set(
           userDocRef,
           {
@@ -268,27 +454,30 @@ class DataManager {
           SetOptions(merge: true));
       _logger.i('User-level data prepared for batch write');
 
-      // Save cycle data
-      List<String> allCycles = [_currentCycle, ..._pastCycles];
-      for (String cycle in allCycles) {
-        _logger.i('Preparing data for cycle: $cycle');
-        Map<String, dynamic> cycleDataToSave = {
-          'labourActivities': _validateJson(_prefs.getString('labourActivities_$cycle') ?? '[]'),
-          'mechanicalCosts': _validateJson(_prefs.getString('mechanicalCosts_$cycle') ?? '[]'),
-          'inputCosts': _validateJson(_prefs.getString('inputCosts_$cycle') ?? '[]'),
-          'miscellaneousCosts': _validateJson(_prefs.getString('miscellaneousCosts_$cycle') ?? '[]'),
-          'revenues': _validateJson(_prefs.getString('revenues_$cycle') ?? '[]'),
-          'paymentHistory': _validateJson(_prefs.getString('paymentHistory_$cycle') ?? '[]'),
-          'loanData': _validateJson(_prefs.getString('loanData_$cycle') ?? '{}'),
-        };
-        batch.set(
-            userDocRef,
-            {
-              'cycles': {cycle: cycleDataToSave}
-            },
-            SetOptions(merge: true));
-        _logger.i('Cycle data for $cycle added to batch');
-      }
+      Map<String, dynamic> cycleDataToSave = {
+        'name': _currentCycle,
+        'year': _currentCycle.split(' ').last,
+        'labourActivities': labourActivities,
+        'mechanicalCosts': mechanicalCosts,
+        'inputCosts': inputCosts,
+        'miscellaneousCosts': miscellaneousCosts,
+        'revenues': revenues,
+        'paymentHistory': paymentHistory,
+        'loanData': {
+          'loanAmount': double.tryParse(loanAmountController.text) ?? 0,
+          'interestRate': double.tryParse(interestRateController.text) ?? 0,
+          'interest': double.tryParse(loanInterestController.text) ?? 0,
+          'totalRepayment': double.tryParse(totalRepaymentController.text) ?? 0,
+          'remainingBalance': double.tryParse(remainingBalanceController.text) ?? 0,
+          'loanSource': loanSourceController.text,
+        },
+        'totalProductionCost': double.tryParse(totalProductionCostController.text) ?? 0,
+        'profitLoss': double.tryParse(profitLossController.text) ?? 0,
+        'timestamp': FieldValue.serverTimestamp(),
+      };
+      DocumentReference cycleDocRef = userDocRef.collection('Cycles').doc(_currentCycle);
+      batch.set(cycleDocRef, cycleDataToSave);
+      _logger.i('Cycle data for $_currentCycle added to batch');
 
       await batch.commit();
       _logger.i('Batch write to Firestore completed successfully');
@@ -297,102 +486,34 @@ class DataManager {
             const SnackBar(content: Text('Data synced to Firestore successfully')));
       }
     } catch (e, stackTrace) {
-      String errorMessage = e is FirebaseException
-          ? 'Firebase Error: ${e.code} - ${e.message}'
-          : 'Unexpected error: $e';
-      _logger.e('Error syncing to Firestore: $errorMessage', error: e, stackTrace: stackTrace);
+      _logger.e('Error syncing to Firestore: $e', error: e, stackTrace: stackTrace);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to sync data: $errorMessage')));
+            SnackBar(content: Text('Failed to sync data: $e')));
       }
     }
   }
 
-  Future<void> loadFromFirestore() async {
-    _logger.i('Starting loadFromFirestore...');
-    String? userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) {
-      _logger.w('No user logged in. Cannot load from Firestore.');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please log in to load data')));
-      }
-      return;
-    }
-
-    _logger.i('User logged in with UID: $userId');
+  List<Map<String, dynamic>> validateJsonList(String jsonString) {
     try {
-      DocumentSnapshot doc = await _firestore.collection('FarmData').doc(userId).get();
-      if (!doc.exists) {
-        _logger.w('No data found in Firestore for UID: $userId');
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No data found in Firestore')));
-        }
-        return;
-      }
-
-      Map<String, dynamic>? data = doc.data() as Map<String, dynamic>?;
-      if (data == null || !data.containsKey('cycles')) {
-        _logger.w('No cycle data found in Firestore for UID: $userId');
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No cycle data available')));
-        }
-        return;
-      }
-
-      _logger.i('User data retrieved from Firestore: ${data.keys}');
-      _currentCycle = data['currentCycle'] ?? 'Current Cycle';
-      _pastCycles = List<String>.from(data['pastCycles'] ?? []);
-      await _prefs.setString('currentCycle', _currentCycle);
-      await _prefs.setStringList('pastCycles', _pastCycles);
-      _logger.i('Updated local state: currentCycle=$_currentCycle, pastCycles=$_pastCycles');
-
-      Map<String, dynamic> cycles = data['cycles'] ?? {};
-      for (String cycle in [_currentCycle, ..._pastCycles]) {
-        if (cycles.containsKey(cycle)) {
-          _logger.i('Loading data for cycle: $cycle');
-          Map<String, dynamic> cycleData = cycles[cycle];
-          await _prefs.setString('labourActivities_$cycle', jsonEncode(cycleData['labourActivities'] ?? []));
-          await _prefs.setString('mechanicalCosts_$cycle', jsonEncode(cycleData['mechanicalCosts'] ?? []));
-          await _prefs.setString('inputCosts_$cycle', jsonEncode(cycleData['inputCosts'] ?? []));
-          await _prefs.setString('miscellaneousCosts_$cycle', jsonEncode(cycleData['miscellaneousCosts'] ?? []));
-          await _prefs.setString('revenues_$cycle', jsonEncode(cycleData['revenues'] ?? []));
-          await _prefs.setString('paymentHistory_$cycle', jsonEncode(cycleData['paymentHistory'] ?? []));
-          await _prefs.setString('loanData_$cycle', jsonEncode(cycleData['loanData'] ?? {}));
-          _logger.i('Cycle data for $cycle saved to SharedPreferences');
-        } else {
-          _logger.w('No data found for cycle: $cycle in Firestore');
-        }
-      }
-
-      _loadCycleData(_currentCycle);
-      _logger.i('Data loaded from Firestore successfully');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Data loaded from Firestore successfully')));
-      }
-      onDataChanged();
-    } catch (e, stackTrace) {
-      String errorMessage = e is FirebaseException
-          ? 'Firebase Error: ${e.code} - ${e.message}'
-          : 'Unexpected error: $e';
-      _logger.e('Error loading from Firestore: $errorMessage', error: e, stackTrace: stackTrace);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to load data: $errorMessage')));
-      }
-    }
-  }
-
-  String _validateJson(String jsonString) {
-    try {
-      jsonDecode(jsonString);
-      return jsonString;
+      final decoded = jsonDecode(jsonString);
+      return decoded is List
+          ? List<Map<String, dynamic>>.from(
+              decoded.map((item) => Map<String, dynamic>.from(item)))
+          : [];
     } catch (e) {
-      _logger.w('Invalid JSON: $jsonString, error: $e');
-      return jsonString.contains('[') ? '[]' : '{}';
+      _logger.w('Invalid JSON list: $jsonString, error: $e');
+      return [];
+    }
+  }
+
+  Map<String, dynamic> validateJsonMap(String jsonString) {
+    try {
+      final decoded = jsonDecode(jsonString);
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : {};
+    } catch (e) {
+      _logger.w('Invalid JSON map: $jsonString, error: $e');
+      return {};
     }
   }
 
@@ -460,7 +581,6 @@ class DataManager {
 
   Future<void> startNewCycle() async {
     _logger.i('Starting new cycle...');
-    String? selectedCycleName;
     String customCycleName = '';
     int? selectedYear;
     if (context.mounted) {
@@ -471,19 +591,13 @@ class DataManager {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Predefined Cycle Name'),
-                items: [
-                  const DropdownMenuItem(value: '', child: Text('Custom')),
-                  ...predefinedCycleNames.map((name) => DropdownMenuItem(value: name, child: Text(name)))
-                ],
-                onChanged: (value) => selectedCycleName = value,
-              ),
-              if (selectedCycleName == '')
-                TextFormField(
-                  decoration: const InputDecoration(labelText: 'Custom Cycle Name'),
-                  onChanged: (value) => customCycleName = value,
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'Cycle Name',
+                  hintText: 'e.g., Coffee Harvest',
                 ),
+                onChanged: (value) => customCycleName = value,
+              ),
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Year'),
                 keyboardType: TextInputType.number,
@@ -497,15 +611,14 @@ class DataManager {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                if ((selectedCycleName != null && selectedYear != null) &&
-                    ((selectedCycleName!.isNotEmpty) || customCycleName.isNotEmpty)) {
-                  String newCycleName = selectedCycleName!.isEmpty
-                      ? '$customCycleName $selectedYear'
-                      : '$selectedCycleName $selectedYear';
+              onPressed: () async {
+                if (customCycleName.isNotEmpty && selectedYear != null) {
+                  String newCycleName = '$customCycleName $selectedYear';
                   _logger.i('Creating new cycle: $newCycleName');
-                  _saveCurrentCycle(newCycleName);
-                  Navigator.pop(context);
+                  await _saveCurrentCycle(newCycleName);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
                 } else {
                   _logger.w('Invalid cycle name or year');
                   if (context.mounted) {
@@ -522,43 +635,78 @@ class DataManager {
     }
   }
 
-  void _saveCurrentCycle(String newCycleName) {
+  Future<void> _saveCurrentCycle(String newCycleName) async {
     _logger.i('Saving current cycle and starting new: $newCycleName');
-    _saveDataOnChange();
-    _pastCycles.add(newCycleName);
-    _prefs.setStringList('pastCycles', _pastCycles);
+    // Save current cycle data before switching
+    await _saveDataOnChange();
+    if (_currentCycle != 'Current Cycle') {
+      _pastCycles.add(_currentCycle);
+    }
+    await _prefs.setStringList('pastCycles', _pastCycles);
 
-    _currentCycle = 'Current Cycle';
-    _prefs.setString('currentCycle', _currentCycle);
-    labourActivities.clear();
-    mechanicalCosts.clear();
-    inputCosts.clear();
-    miscellaneousCosts.clear();
-    revenues.clear();
-    paymentHistory.clear();
-    _prefs.remove('labourActivities_$_currentCycle');
-    _prefs.remove('mechanicalCosts_$_currentCycle');
-    _prefs.remove('inputCosts_$_currentCycle');
-    _prefs.remove('miscellaneousCosts_$_currentCycle');
-    _prefs.remove('revenues_$_currentCycle');
-    _prefs.remove('paymentHistory_$_currentCycle');
-    _prefs.remove('loanData_$_currentCycle');
+    // Initialize new cycle
+    _currentCycle = newCycleName;
+    await _prefs.setString('currentCycle', _currentCycle);
+    labourActivities = [];
+    mechanicalCosts = [];
+    inputCosts = [];
+    miscellaneousCosts = [];
+    revenues = [];
+    paymentHistory = [];
+    loanAmountController.text = '0';
+    interestRateController.text = '0';
+    loanInterestController.text = '0.00';
+    totalRepaymentController.text = '0.00';
+    remainingBalanceController.text = '0.00';
+    loanSourceController.text = '';
+    totalProductionCostController.text = '0.00';
+    profitLossController.text = '0.00';
+
+    // Save initialized data to SharedPreferences
+    await _prefs.setString('labourActivities_$_currentCycle', jsonEncode(labourActivities));
+    await _prefs.setString('mechanicalCosts_$_currentCycle', jsonEncode(mechanicalCosts));
+    await _prefs.setString('inputCosts_$_currentCycle', jsonEncode(inputCosts));
+    await _prefs.setString('miscellaneousCosts_$_currentCycle', jsonEncode(miscellaneousCosts));
+    await _prefs.setString('revenues_$_currentCycle', jsonEncode(revenues));
+    await _prefs.setString('paymentHistory_$_currentCycle', jsonEncode(paymentHistory));
+    await _prefs.setString('loanData_$_currentCycle', jsonEncode({
+      'loanAmount': 0,
+      'interestRate': 0,
+      'interest': 0,
+      'totalRepayment': 0,
+      'remainingBalance': 0,
+      'loanSource': '',
+    }));
+    await _prefs.setBool('isFirstLaunch', true);
 
     _resetForm();
     calculateTotalProductionCost();
-    _retrievedCycle = null;
-    _saveDataOnChange();
-    _logger.i('New cycle started: $newCycleName, reset to currentCycle=$_currentCycle');
+    await syncToFirestore();
+    _logger.i('New cycle started: $newCycleName');
     onDataChanged();
   }
 
   Future<void> retrievePastCycle() async {
     _logger.i('Starting retrievePastCycle...');
-    String? selectedCycleName;
-    int? selectedYear;
-    List<String> recentCycles = _pastCycles.take(3).toList();
+    String searchQuery = '';
     TextEditingController searchController = TextEditingController();
-    bool useFirebase = false;
+    List<String> cycleNames = [];
+
+    String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      try {
+        QuerySnapshot cyclesSnapshot = await _firestore
+            .collection('FarmData')
+            .doc(userId)
+            .collection('Cycles')
+            .get();
+        cycleNames = cyclesSnapshot.docs.map((doc) => doc.id).toList();
+        _pastCycles = cycleNames.where((cycle) => cycle != _currentCycle).toList();
+        await _prefs.setStringList('pastCycles', _pastCycles);
+      } catch (e) {
+        _logger.e('Error fetching cycles from Firestore: $e');
+      }
+    }
 
     if (context.mounted) {
       await showDialog(
@@ -567,183 +715,136 @@ class DataManager {
           builder: (BuildContext context, StateSetter dialogSetState) {
             return AlertDialog(
               title: const Text('Retrieve Past Cycle'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(labelText: 'Cycle Name'),
-                      items: predefinedCycleNames.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
-                      onChanged: (value) => selectedCycleName = value,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: searchController,
+                    decoration: const InputDecoration(
+                      labelText: 'Search Cycle Name',
+                      hintText: 'e.g., Coffee Harvest 2025',
                     ),
-                    TextFormField(
-                      decoration: const InputDecoration(labelText: 'Year'),
-                      keyboardType: TextInputType.number,
-                      onChanged: (value) => selectedYear = int.tryParse(value),
-                    ),
-                    CheckboxListTile(
-                      title: const Text('Fetch from Firebase if not local'),
-                      value: useFirebase,
-                      onChanged: (value) {
-                        dialogSetState(() {
-                          useFirebase = value ?? false;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    const Text('Recent Cycles:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ...recentCycles.map((cycle) => ListTile(
+                    onChanged: (value) {
+                      searchQuery = value;
+                      dialogSetState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 200,
+                    child: ListView.builder(
+                      itemCount: cycleNames
+                          .where((cycle) => cycle.toLowerCase().contains(searchQuery.toLowerCase()))
+                          .length,
+                      itemBuilder: (context, index) {
+                        String cycle = cycleNames
+                            .where((cycle) => cycle.toLowerCase().contains(searchQuery.toLowerCase()))
+                            .elementAt(index);
+                        return ListTile(
                           title: Text(cycle),
-                          onTap: () {
-                            _logger.i('Selected recent cycle: $cycle');
+                          onTap: () async {
+                            _logger.i('Selected cycle: $cycle');
                             Navigator.pop(context);
-                            _retrievedCycle = cycle;
-                            _loadCycleData(cycle);
-                            onDataChanged();
+                            await loadCycleData(cycle);
                           },
-                        )),
-                    TextField(
-                      controller: searchController,
-                      decoration: const InputDecoration(labelText: 'Search by Name'),
-                      onChanged: (value) {
-                        if (value.isNotEmpty) {
-                          String closestMatch = _pastCycles.firstWhere(
-                            (cycle) => cycle.toLowerCase().contains(value.toLowerCase()),
-                            orElse: () => '',
-                          );
-                          if (closestMatch.isNotEmpty && closestMatch != value && context.mounted) {
-                            _logger.i('Found close match for search: $closestMatch');
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    const Text('Did you mean '),
-                                    GestureDetector(
-                                      onTap: () {
-                                        Navigator.pop(context);
-                                        _retrievedCycle = closestMatch;
-                                        _loadCycleData(closestMatch);
-                                        _logger.i('Retrieved cycle via search: $closestMatch');
-                                        onDataChanged();
-                                      },
-                                      child: Text('"$closestMatch"?',
-                                          style: const TextStyle(color: Colors.blue)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
-                        }
+                        );
                       },
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
-                TextButton(
-                  onPressed: () async {
-                    if (selectedCycleName != null && selectedYear != null) {
-                      String cycleToRetrieve = '$selectedCycleName $selectedYear';
-                      _logger.i('Attempting to retrieve cycle: $cycleToRetrieve');
-                      Navigator.pop(context);
-
-                      if (_pastCycles.contains(cycleToRetrieve)) {
-                        _retrievedCycle = cycleToRetrieve;
-                        _loadCycleData(cycleToRetrieve);
-                        _logger.i('Retrieved cycle locally: $cycleToRetrieve');
-                        onDataChanged();
-                      } else if (useFirebase) {
-                        String? userId = FirebaseAuth.instance.currentUser?.uid;
-                        if (userId == null) {
-                          _logger.w('No user logged in for Firebase retrieval');
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('You must be logged in to fetch from Firebase')));
-                          }
-                          return;
-                        }
-
-                        try {
-                          DocumentSnapshot doc = await _firestore.collection('farm_data').doc(userId).get();
-                          if (!doc.exists) {
-                            _logger.w('No data found in Firestore for UID: $userId');
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('No data found for this user')));
-                            }
-                            return;
-                          }
-                          Map<String, dynamic>? data = doc.data() as Map<String, dynamic>?;
-                          if (data == null || !data.containsKey('cycles')) {
-                            _logger.w('No cycle data found in Firestore for UID: $userId');
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('No cycle data available')));
-                            }
-                            return;
-                          }
-                          Map<String, dynamic> cycles = data['cycles'];
-                          if (cycles.containsKey(cycleToRetrieve)) {
-                            _retrievedCycle = cycleToRetrieve;
-                            labourActivities = List<Map<String, dynamic>>.from(cycles[cycleToRetrieve]['labourActivities'] ?? []);
-                            mechanicalCosts = List<Map<String, dynamic>>.from(cycles[cycleToRetrieve]['mechanicalCosts'] ?? []);
-                            inputCosts = List<Map<String, dynamic>>.from(cycles[cycleToRetrieve]['inputCosts'] ?? []);
-                            miscellaneousCosts = List<Map<String, dynamic>>.from(cycles[cycleToRetrieve]['miscellaneousCosts'] ?? []);
-                            revenues = List<Map<String, dynamic>>.from(cycles[cycleToRetrieve]['revenues'] ?? []);
-                            paymentHistory = List<Map<String, dynamic>>.from(cycles[cycleToRetrieve]['paymentHistory'] ?? []);
-                            await _prefs.setString('labourActivities_$cycleToRetrieve', jsonEncode(cycles[cycleToRetrieve]['labourActivities'] ?? []));
-                            await _prefs.setString('mechanicalCosts_$cycleToRetrieve', jsonEncode(cycles[cycleToRetrieve]['mechanicalCosts'] ?? []));
-                            await _prefs.setString('inputCosts_$cycleToRetrieve', jsonEncode(cycles[cycleToRetrieve]['inputCosts'] ?? []));
-                            await _prefs.setString('miscellaneousCosts_$cycleToRetrieve', jsonEncode(cycles[cycleToRetrieve]['miscellaneousCosts'] ?? []));
-                            await _prefs.setString('revenues_$cycleToRetrieve', jsonEncode(cycles[cycleToRetrieve]['revenues'] ?? []));
-                            await _prefs.setString('paymentHistory_$cycleToRetrieve', jsonEncode(cycles[cycleToRetrieve]['paymentHistory'] ?? []));
-                            await _prefs.setString('loanData_$cycleToRetrieve', jsonEncode(cycles[cycleToRetrieve]['loanData'] ?? {}));
-                            _loadLoanData(cycleToRetrieve);
-                            calculateTotalProductionCost();
-                            _pastCycles.add(cycleToRetrieve);
-                            await _prefs.setStringList('pastCycles', _pastCycles);
-                            _logger.i('Retrieved cycle from Firestore: $cycleToRetrieve');
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Data retrieved from Firebase')));
-                            }
-                            onDataChanged();
-                          } else {
-                            _logger.w('Cycle not found in Firestore: $cycleToRetrieve');
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Cycle "$cycleToRetrieve" not found')));
-                            }
-                          }
-                        } catch (e, stackTrace) {
-                          String errorMessage = e is FirebaseException
-                              ? 'Firebase Error: ${e.code} - ${e.message}'
-                              : 'Unexpected error: $e';
-                          _logger.e('Error fetching from Firestore: $errorMessage', error: e, stackTrace: stackTrace);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error fetching from Firebase: $errorMessage')));
-                          }
-                        }
-                      } else {
-                        _logger.w('Cycle not found locally: $cycleToRetrieve');
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Cycle not found locally')));
-                        }
-                      }
-                    }
-                  },
-                  child: const Text('Retrieve'),
-                ),
               ],
             );
           },
+        ),
+      );
+    }
+    if (searchQuery.isNotEmpty && !_pastCycles.any((cycle) => cycle.toLowerCase().contains(searchQuery.toLowerCase())) && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No cycle found matching "$searchQuery"')));
+    }
+  }
+
+  Future<void> editCycleName(VoidCallback onCycleChanged) async {
+    _logger.i('Starting editCycleName...');
+    String customCycleName = '';
+    int? selectedYear;
+    if (context.mounted) {
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Set Cycle Name'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'Cycle Name',
+                  hintText: 'e.g., Coffee Harvest',
+                ),
+                onChanged: (value) => customCycleName = value,
+              ),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Year'),
+                keyboardType: TextInputType.number,
+                onChanged: (value) => selectedYear = int.tryParse(value),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (customCycleName.isNotEmpty && selectedYear != null) {
+                  String newCycleName = '$customCycleName $selectedYear';
+                  _logger.i('Updating cycle name to: $newCycleName');
+                  await _saveDataOnChange();
+                  await _prefs.setString('labourActivities_$newCycleName', jsonEncode(labourActivities));
+                  await _prefs.setString('mechanicalCosts_$newCycleName', jsonEncode(mechanicalCosts));
+                  await _prefs.setString('inputCosts_$newCycleName', jsonEncode(inputCosts));
+                  await _prefs.setString('miscellaneousCosts_$newCycleName', jsonEncode(miscellaneousCosts));
+                  await _prefs.setString('revenues_$newCycleName', jsonEncode(revenues));
+                  await _prefs.setString('paymentHistory_$newCycleName', jsonEncode(paymentHistory));
+                  await _prefs.setString('loanData_$newCycleName', _prefs.getString('loanData_$_currentCycle') ?? '{}');
+                  await _prefs.remove('labourActivities_$_currentCycle');
+                  await _prefs.remove('mechanicalCosts_$_currentCycle');
+                  await _prefs.remove('inputCosts_$_currentCycle');
+                  await _prefs.remove('miscellaneousCosts_$_currentCycle');
+                  await _prefs.remove('revenues_$_currentCycle');
+                  await _prefs.remove('paymentHistory_$_currentCycle');
+                  await _prefs.remove('loanData_$_currentCycle');
+                  _pastCycles.remove(_currentCycle);
+                  _pastCycles.add(newCycleName);
+                  await _prefs.setStringList('pastCycles', _pastCycles);
+                  _currentCycle = newCycleName;
+                  await _prefs.setString('currentCycle', _currentCycle);
+                  await _prefs.setBool('isFirstLaunch', false);
+                  await _saveDataOnChange();
+                  await syncToFirestore();
+                  _logger.i('Cycle name updated to: $_currentCycle');
+                  onCycleChanged();
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                } else {
+                  _logger.w('Invalid cycle name or year');
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please enter a cycle name and year')));
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
         ),
       );
     }
@@ -779,73 +880,6 @@ class DataManager {
 
   List<String> getInputSuggestions() {
     return inputCosts.map((cost) => cost['input'] as String).toSet().toList();
-  }
-
-  Future<void> editCycleName(VoidCallback onCycleChanged) async {
-    _logger.i('Starting editCycleName...');
-    String? selectedCycleName;
-    String customCycleName = '';
-    int? selectedYear;
-    if (context.mounted) {
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Set Cycle Name'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Predefined Cycle Name'),
-                items: [
-                  const DropdownMenuItem(value: '', child: Text('Custom')),
-                  ...predefinedCycleNames.map((name) => DropdownMenuItem(value: name, child: Text(name)))
-                ],
-                onChanged: (value) => selectedCycleName = value,
-              ),
-              if (selectedCycleName == '')
-                TextFormField(
-                  decoration: const InputDecoration(labelText: 'Custom Cycle Name'),
-                  onChanged: (value) => customCycleName = value,
-                ),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Year'),
-                keyboardType: TextInputType.number,
-                onChanged: (value) => selectedYear = int.tryParse(value),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                if ((selectedCycleName != null && selectedYear != null) &&
-                    (selectedCycleName!.isNotEmpty || customCycleName.isNotEmpty)) {
-                  _currentCycle = selectedCycleName!.isEmpty
-                      ? '$customCycleName $selectedYear'
-                      : '$selectedCycleName $selectedYear';
-                  _prefs.setString('currentCycle', _currentCycle);
-                  _prefs.setBool('isFirstLaunch', false);
-                  _logger.i('Cycle name updated to: $_currentCycle');
-                  _saveDataOnChange();
-                  onCycleChanged();
-                  Navigator.pop(context);
-                } else {
-                  _logger.w('Invalid cycle name or year');
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please enter a cycle name and year')));
-                  }
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      );
-    }
   }
 
   void addLabourCost() {
@@ -954,6 +988,7 @@ class DataManager {
       final newRevenue = {
         'coffeeVariety': coffeeVarietyController.text,
         'amount': revenueController.text,
+        'yield': yieldController.text.isNotEmpty ? yieldController.text : null,
         'date': DateTime.now().toIso8601String().substring(0, 10),
       };
       revenues.insert(0, newRevenue);
@@ -1011,5 +1046,78 @@ class DataManager {
     calculateTotalProductionCost();
     _logger.i('Activity deleted from $category at index $index');
     onDataChanged();
+  }
+
+  Future<void> editActivity(String category, int index, Map<String, dynamic> updatedData) async {
+    _logger.i('Editing activity: category=$category, index=$index');
+    try {
+      switch (category) {
+        case 'labour':
+          if (index >= 0 && index < labourActivities.length) {
+            labourActivities[index] = {
+              'activity': updatedData['activity'] ?? labourActivities[index]['activity'],
+              'cost': updatedData['cost'] ?? labourActivities[index]['cost'],
+              'date': updatedData['date'] ?? labourActivities[index]['date'],
+            };
+          }
+          break;
+        case 'mechanical':
+          if (index >= 0 && index < mechanicalCosts.length) {
+            mechanicalCosts[index] = {
+              'equipment': updatedData['equipment'] ?? mechanicalCosts[index]['equipment'],
+              'cost': updatedData['cost'] ?? mechanicalCosts[index]['cost'],
+              'date': updatedData['date'] ?? mechanicalCosts[index]['date'],
+            };
+          }
+          break;
+        case 'input':
+          if (index >= 0 && index < inputCosts.length) {
+            inputCosts[index] = {
+              'input': updatedData['input'] ?? inputCosts[index]['input'],
+              'cost': updatedData['cost'] ?? inputCosts[index]['cost'],
+              'date': updatedData['date'] ?? inputCosts[index]['date'],
+            };
+          }
+          break;
+        case 'miscellaneous':
+          if (index >= 0 && index < miscellaneousCosts.length) {
+            miscellaneousCosts[index] = {
+              'description': updatedData['description'] ?? miscellaneousCosts[index]['description'],
+              'cost': updatedData['cost'] ?? miscellaneousCosts[index]['cost'],
+              'date': updatedData['date'] ?? miscellaneousCosts[index]['date'],
+            };
+          }
+          break;
+        case 'revenue':
+          if (index >= 0 && index < revenues.length) {
+            revenues[index] = {
+              'coffeeVariety': updatedData['coffeeVariety'] ?? revenues[index]['coffeeVariety'],
+              'amount': updatedData['amount'] ?? revenues[index]['amount'],
+              'yield': updatedData['yield'] ?? revenues[index]['yield'],
+              'date': updatedData['date'] ?? revenues[index]['date'],
+            };
+          }
+          break;
+        case 'payment':
+          if (index >= 0 && index < paymentHistory.length) {
+            paymentHistory[index] = {
+              'amount': updatedData['amount'] ?? paymentHistory[index]['amount'],
+              'date': updatedData['date'] ?? paymentHistory[index]['date'],
+              'remainingBalance': updatedData['remainingBalance'] ?? paymentHistory[index]['remainingBalance'],
+            };
+          }
+          break;
+      }
+      await _saveDataOnChange();
+      calculateTotalProductionCost();
+      _logger.i('Activity edited: $category at index $index');
+      onDataChanged();
+    } catch (e) {
+      _logger.e('Error editing activity: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to edit activity: $e')));
+      }
+    }
   }
 }

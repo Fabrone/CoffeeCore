@@ -3,10 +3,10 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:logger/logger.dart';
 import 'activities_screen.dart';
-import 'history_screen.dart';
 import 'data_manager.dart';
 import 'constants.dart';
 import 'package:coffeecore/home.dart';
+import 'history_screen.dart';
 
 class CoffeeManagementScreen extends StatefulWidget {
   const CoffeeManagementScreen({super.key});
@@ -22,7 +22,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
   late DataManager _dataManager;
   bool _isLoading = true;
   bool _isFirstLaunch = true;
-  String? _retrievedCycle;
+  String? _selectedCycle;
 
   // Form controllers
   final _labourActivityController = TextEditingController();
@@ -76,6 +76,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
           setState(() {
             _logger.i('Data changed, updating UI...');
             _dataManager.calculateTotalProductionCost();
+            _selectedCycle = _dataManager.currentCycle;
           });
         }
       },
@@ -95,12 +96,73 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
       if (mounted) {
         setState(() {
           _isFirstLaunch = isFirstLaunch;
-          _retrievedCycle = retrievedCycle;
+          _selectedCycle = retrievedCycle ?? _dataManager.currentCycle;
           _isLoading = false;
         });
       }
     });
-    _logger.i('Initial data loaded: isFirstLaunch=$_isFirstLaunch, retrievedCycle=$_retrievedCycle');
+    _logger.i('Initial data loaded: isFirstLaunch=$_isFirstLaunch, selectedCycle=$_selectedCycle');
+  }
+
+  Future<void> _switchCycle(String? newCycle) async {
+    if (newCycle == null || newCycle == _selectedCycle) return;
+    _logger.i('Switching to cycle: $newCycle');
+    setState(() => _isLoading = true);
+    try {
+      if (await _checkConnectivity()) {
+        await _dataManager.loadCycleData(newCycle);
+        if (mounted) {
+          setState(() {
+            _selectedCycle = newCycle;
+            _isFirstLaunch = false;
+            _updateFormControllers();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Switched to cycle: $newCycle')),
+          );
+        }
+      } else {
+        _logger.w('No internet connection, cannot switch cycle');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No internet connection to switch cycle')),
+          );
+        }
+      }
+    } catch (e) {
+      _logger.e('Error switching cycle: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error switching cycle: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _updateFormControllers() {
+    // Clear and update controllers with selected cycle's data
+    _labourActivityController.clear();
+    _labourCostController.clear();
+    _equipmentUsedController.clear();
+    _equipmentCostController.clear();
+    _inputUsedController.clear();
+    _inputCostController.clear();
+    _miscellaneousDescController.clear();
+    _miscellaneousCostController.clear();
+    _cropGrownController.clear();
+    _revenueController.clear();
+    _totalProductionCostController.text = _dataManager.totalProductionCostController.text;
+    _profitLossController.text = _dataManager.profitLossController.text;
+    _loanAmountController.text = _dataManager.loanAmountController.text;
+    _interestRateController.text = _dataManager.interestRateController.text;
+    _loanInterestController.text = _dataManager.loanInterestController.text;
+    _totalRepaymentController.text = _dataManager.totalRepaymentController.text;
+    _remainingBalanceController.text = _dataManager.remainingBalanceController.text;
+    _paymentAmountController.clear();
   }
 
   Future<bool> _checkConnectivity() async {
@@ -143,7 +205,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Good news! Your financial info is stored only on this device.',
+                  'Good news! Your financial info is stored securely.',
                   style: TextStyle(fontSize: 16, height: 1.4),
                 ),
                 SizedBox(height: 8),
@@ -169,8 +231,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                     builder: (context) => AlertDialog(
                       title: const Text('More Info'),
                       content: const Text(
-                        'Your costs, revenues, and loans are saved locally using SharedPreferences. '
-                        'You can also sync to Firestore for backup. '
+                        'Your coffee farm data is stored locally on this device. '
                         'For security, avoid lending your device or use a passcode.',
                       ),
                       actions: [
@@ -191,8 +252,107 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
     }
   }
 
+  Future<void> _saveData() async {
+    _logger.i('Saving data for cycle: $_selectedCycle');
+    _dataManager.saveForm();
+    if (await _checkConnectivity()) {
+      await _dataManager.syncToFirestore();
+      if (mounted) {
+        setState(() {
+          _dataManager.calculateTotalProductionCost();
+          _updateFormControllers();
+        });
+      }
+    } else {
+      _logger.i('No internet, data saved locally only');
+    }
+  }
+
+  Future<void> _showHistorySection() async {
+    _logger.i('Showing history section...');
+    if (!await _checkConnectivity()) {
+      return;
+    }
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
+    try {
+      Map<String, dynamic>? data = await _dataManager.loadFromFirestore();
+      if (data == null || !data.containsKey('cycles')) {
+        _logger.w('No cycle data found in Firestore');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No historical data found')));
+        }
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+        return;
+      }
+
+      Map<String, dynamic> cycles = data['cycles'] ?? {};
+      cycles.keys.toList();
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HistoryScreen(
+              cycleName: _selectedCycle ?? _dataManager.currentCycle,
+              pastCycles: _dataManager.pastCycles,
+              dataManager: _dataManager,
+            ),
+          ),
+        );
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      _logger.e('Error loading history: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error loading history: $e')));
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showActivitiesScreen() {
+    _logger.i('View All Activities button pressed');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ActivitiesScreen(
+          labourActivities: _dataManager.labourActivities,
+          mechanicalCosts: _dataManager.mechanicalCosts,
+          inputCosts: _dataManager.inputCosts,
+          miscellaneousCosts: _dataManager.miscellaneousCosts,
+          revenues: _dataManager.revenues,
+          paymentHistory: _dataManager.paymentHistory,
+          totalCosts: _totalProductionCostController.text,
+          profitLoss: _profitLossController.text,
+          onDelete: (category, index) {
+            _logger.i('Delete activity: category=$category, index=$index');
+            if (mounted) {
+              setState(() {
+                _dataManager.deleteActivity(category, index);
+                _dataManager.calculateTotalProductionCost();
+                Navigator.pop(context);
+              });
+            }
+          },
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Combine currentCycle and pastCycles, ensuring uniqueness
+    final cycles = {_dataManager.currentCycle, ..._dataManager.pastCycles}.toList();
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -213,85 +373,54 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
         backgroundColor: customBrown,
         actions: [
           IconButton(
-            icon: const Icon(Icons.history_edu, color: Colors.white),
-            tooltip: 'View History',
-            onPressed: () {
-              _logger.i('View History button pressed');
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => HistoryScreen(
-                    labourActivities: _dataManager.labourActivities,
-                    mechanicalCosts: _dataManager.mechanicalCosts,
-                    inputCosts: _dataManager.inputCosts,
-                    miscellaneousCosts: _dataManager.miscellaneousCosts,
-                    revenues: _dataManager.revenues,
-                    paymentHistory: _dataManager.paymentHistory,
-                    cycleName: _dataManager.currentCycle,
-                    pastCycles: _dataManager.pastCycles,
-                  ),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.save, color: Colors.white),
-            tooltip: 'Save Current Cycle',
-            onPressed: () {
-              _logger.i('Save Current Cycle button pressed');
-              _dataManager.saveForm();
-            },
+            icon: const Icon(Icons.task_alt, color: Colors.white),
+            tooltip: 'View Farm Activities',
+            onPressed: _showActivitiesScreen,
           ),
           IconButton(
             icon: const Icon(Icons.add_circle_outline, color: Colors.white),
             tooltip: 'Start New Cycle',
-            onPressed: () {
-              _logger.i('Start New Cycle button pressed');
-              _dataManager.startNewCycle();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.white),
-            tooltip: 'Retrieve Past Cycle',
             onPressed: () async {
-              _logger.i('Retrieve Past Cycle button pressed');
-              await _dataManager.retrievePastCycle();
+              _logger.i('Start New Cycle button pressed');
+              await _dataManager.startNewCycle();
               if (mounted) {
                 setState(() {
-                  _retrievedCycle = _dataManager.retrievedCycle;
-                  _dataManager.calculateTotalProductionCost();
+                  _selectedCycle = _dataManager.currentCycle;
+                  _isFirstLaunch = true;
+                  _updateFormControllers();
                 });
               }
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.cloud_upload, color: Colors.white),
-            tooltip: 'Sync to Cloud',
-            onPressed: () async {
-              _logger.i('Sync to Cloud button pressed');
-              if (await _checkConnectivity()) {
-                await _dataManager.syncToFirestore();
-              }
-            },
+          DropdownButton<String>(
+            value: _selectedCycle != null && cycles.contains(_selectedCycle)
+                ? _selectedCycle
+                : cycles.isNotEmpty
+                    ? cycles.first
+                    : null,
+            hint: const Text('Select Cycle', style: TextStyle(color: Colors.white)),
+            icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+            dropdownColor: customBrown,
+            style: const TextStyle(color: Colors.white),
+            items: cycles.isNotEmpty
+                ? cycles.map((String cycle) {
+                    return DropdownMenuItem<String>(
+                      value: cycle,
+                      child: Text(cycle),
+                    );
+                  }).toList()
+                : [
+                    const DropdownMenuItem<String>(
+                      value: 'Current Cycle',
+                      child: Text('Current Cycle'),
+                    ),
+                  ],
+            onChanged: _switchCycle,
           ),
           IconButton(
-            icon: const Icon(Icons.cloud_download, color: Colors.white),
-            tooltip: 'Load from Cloud',
-            onPressed: () async {
-              _logger.i('Load from Cloud button pressed');
-              if (await _checkConnectivity()) {
-                if (mounted) {
-                  setState(() => _isLoading = true);
-                }
-                await _dataManager.loadFromFirestore();
-                if (mounted) {
-                  setState(() {
-                    _retrievedCycle = _dataManager.retrievedCycle;
-                    _isLoading = false;
-                  });
-                }
-              }
-            },
+            icon: const Icon(Icons.history, color: Colors.white),
+            tooltip: 'View History',
+            onPressed: _showHistorySection,
           ),
         ],
         bottom: TabBar(
@@ -321,41 +450,10 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
               ],
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _logger.i('View All Activities button pressed');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ActivitiesScreen(
-                labourActivities: _dataManager.labourActivities,
-                mechanicalCosts: _dataManager.mechanicalCosts,
-                inputCosts: _dataManager.inputCosts,
-                miscellaneousCosts: _dataManager.miscellaneousCosts,
-                revenues: _dataManager.revenues,
-                paymentHistory: _dataManager.paymentHistory,
-                totalCosts: _totalProductionCostController.text,
-                profitLoss: _profitLossController.text,
-                onDelete: (category, index) {
-                  _logger.i('Delete activity: category=$category, index=$index');
-                  if (mounted) {
-                    setState(() {
-                      _dataManager.deleteActivity(category, index);
-                      _dataManager.calculateTotalProductionCost();
-                      Navigator.pop(context);
-                    });
-                  }
-                },
-              ),
-            ),
-          ).then((_) {
-            if (mounted) {
-              setState(() {});
-            }
-          });
-        },
+        onPressed: _saveData,
         backgroundColor: customBrown,
-        tooltip: 'View All Activities',
-        child: const Icon(Icons.list, color: Colors.white),
+        tooltip: 'Save Data',
+        child: const Icon(Icons.save, color: Colors.white),
       ),
     );
   }
@@ -369,7 +467,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Dashboard - ${_retrievedCycle ?? _dataManager.currentCycle}',
+                'Dashboard - ${_selectedCycle ?? _dataManager.currentCycle}',
                 style: const TextStyle(
                     fontSize: 24, fontWeight: FontWeight.bold, color: customBrown),
               ),
@@ -383,6 +481,7 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                       if (mounted) {
                         setState(() {
                           _isFirstLaunch = false;
+                          _selectedCycle = _dataManager.currentCycle;
                         });
                       }
                     });
@@ -544,6 +643,19 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
               title: Text(
                   'Latest Activity: ${_dataManager.labourActivities.first['activity']} - KSH ${_dataManager.labourActivities.first['cost']}'),
               subtitle: Text('Date: ${_dataManager.labourActivities.first['date']}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.close, color: Colors.red),
+                tooltip: 'Cancel Latest Activity',
+                onPressed: () {
+                  _logger.i('Cancel Latest Activity button pressed');
+                  if (mounted) {
+                    setState(() {
+                      _dataManager.deleteActivity('labour', 0);
+                      _dataManager.calculateTotalProductionCost();
+                    });
+                  }
+                },
+              ),
             ),
           Card(
             color: Colors.blue[100],
@@ -629,6 +741,19 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
               title: Text(
                   'Latest Equipment: ${_dataManager.mechanicalCosts.first['equipment']} - KSH ${_dataManager.mechanicalCosts.first['cost']}'),
               subtitle: Text('Date: ${_dataManager.mechanicalCosts.first['date']}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.close, color: Colors.red),
+                tooltip: 'Cancel Latest Equipment',
+                onPressed: () {
+                  _logger.i('Cancel Latest Equipment button pressed');
+                  if (mounted) {
+                    setState(() {
+                      _dataManager.deleteActivity('equipment', 0);
+                      _dataManager.calculateTotalProductionCost();
+                    });
+                  }
+                },
+              ),
             ),
           Card(
             color: Colors.orange[100],
@@ -714,6 +839,19 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
               title: Text(
                   'Latest Input: ${_dataManager.inputCosts.first['input']} - KSH ${_dataManager.inputCosts.first['cost']}'),
               subtitle: Text('Date: ${_dataManager.inputCosts.first['date']}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.close, color: Colors.red),
+                tooltip: 'Cancel Latest Input',
+                onPressed: () {
+                  _logger.i('Cancel Latest Input button pressed');
+                  if (mounted) {
+                    setState(() {
+                      _dataManager.deleteActivity('input', 0);
+                      _dataManager.calculateTotalProductionCost();
+                    });
+                  }
+                },
+              ),
             ),
           Card(
             color: Colors.grey[200],
@@ -756,6 +894,11 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
                           _dataManager.miscellaneousDate = picked;
                           _logger.i('Miscellaneous date set to: $picked');
                         });
+                      } else if (mounted) {
+                        setState(() {
+                          _dataManager.miscellaneousDate = DateTime.now();
+                          _logger.i('Miscellaneous date set to now due to null picked date');
+                        });
                       }
                     },
                   ),
@@ -781,6 +924,19 @@ class _CoffeeManagementScreenState extends State<CoffeeManagementScreen>
               title: Text(
                   'Latest Misc: ${_dataManager.miscellaneousCosts.first['description']} - KSH ${_dataManager.miscellaneousCosts.first['cost']}'),
               subtitle: Text('Date: ${_dataManager.miscellaneousCosts.first['date']}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.close, color: Colors.red),
+                tooltip: 'Cancel Latest Miscellaneous',
+                onPressed: () {
+                  _logger.i('Cancel Latest Miscellaneous button pressed');
+                  if (mounted) {
+                    setState(() {
+                      _dataManager.deleteActivity('miscellaneous', 0);
+                      _dataManager.calculateTotalProductionCost();
+                    });
+                  }
+                },
+              ),
             ),
         ],
       ),

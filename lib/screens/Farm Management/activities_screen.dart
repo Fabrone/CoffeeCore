@@ -2,7 +2,8 @@ import 'package:coffeecore/screens/Farm Management/firestore_service.dart';
 import 'package:coffeecore/screens/Farm Management/historical_data.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:logger/logger.dart'; // Import logging package
+import 'package:logger/logger.dart';
+import 'constants.dart';
 
 class ActivitiesScreen extends StatelessWidget {
   final List<Map<String, dynamic>> labourActivities;
@@ -29,13 +30,12 @@ class ActivitiesScreen extends StatelessWidget {
   });
 
   final FirestoreService _firestoreService = FirestoreService();
-  final String userUid = FirebaseAuth.instance.currentUser!.uid; // Get current user's UID
-  final Logger logger = Logger(); // Initialize logger
+  final String userUid = FirebaseAuth.instance.currentUser!.uid;
+  final Logger logger = Logger();
 
-  // Function to delete activity and save historical data
   Future<void> _deleteActivity(BuildContext context, String type, int index) async {
     try {
-      logger.i('Attempting to delete $type activity at index $index'); // Log the activity type and index
+      logger.i('Attempting to delete $type activity at index $index');
       Map<String, dynamic> activityData;
 
       switch (type) {
@@ -58,33 +58,38 @@ class ActivitiesScreen extends StatelessWidget {
           activityData = paymentHistory[index];
           break;
         default:
-          logger.e('Unknown activity type: $type'); // Log unknown type
+          logger.e('Unknown activity type: $type');
           throw Exception('Unknown activity type');
       }
 
       HistoricalData historicalData = HistoricalData(
-        activity: activityData['activity'] ?? activityData['description'] ?? activityData['coffeeVariety'],
+        activity: activityData['activity'] ??
+            activityData['description'] ??
+            activityData['coffeeVariety'],
         cost: activityData['cost'],
         date: activityData['date'],
-        userId: userUid, // Use the user's UID
+        userId: userUid,
       );
 
-      logger.i('Deleting activity: ${historicalData.activity}, Cost: ${historicalData.cost}'); // Log activity details
-      await _firestoreService.deleteFarmData(userUid, historicalData); // Call to delete from Firestore
-      onDelete(type, index); // Call the onDelete function passed in
+      logger.i('Deleting activity: ${historicalData.activity}, Cost: ${historicalData.cost}');
+      await _firestoreService.deleteFarmData(userUid, historicalData);
+      onDelete(type, index);
 
-      logger.i('Activity deleted successfully!'); // Log success message
+      logger.i('Activity deleted successfully!');
     } catch (error) {
-      logger.e('Failed to delete activity: $error'); // Log error
-      _showErrorDialog(context, 'Error Deleting Activity', 'Could not delete the activity. Please try again later.'); // Pass context
+      logger.e('Failed to delete activity: $error');
+      // Check if context is still valid before showing dialog
+      if (context.mounted) {
+        _showErrorDialog(context, 'Error Deleting Activity',
+            'Could not delete the activity. Please try again later.');
+      }
     }
   }
 
-  // Function to show error dialog
   void _showErrorDialog(BuildContext context, String title, String message) {
-    logger.w('Showing error dialog: $title - $message'); // Log error dialog details
+    logger.w('Showing error dialog: $title - $message');
     showDialog(
-      context: context, // Use the context from the build method
+      context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(title),
@@ -102,132 +107,181 @@ class ActivitiesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    logger.i('Building ActivitiesScreen'); // Log when the screen is built
+    logger.i('Building ActivitiesScreen');
     return Scaffold(
-      appBar: AppBar(title: const Text('All Farm Activities')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          tooltip: 'Back to Management',
+          onPressed: () {
+            logger.i('Back button pressed');
+            Navigator.pop(context);
+          },
+        ),
+        title: const Text(
+          'All Farm Activities',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: customBrown,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: ListTile(
-                title: const Text('Total Costs'),
+                title: const Text(
+                  'Total Costs',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 subtitle: Text('KSH $totalCosts'),
+                leading: Icon(Icons.account_balance_wallet, color: customBrown),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 8.0),
               ),
             ),
+            const SizedBox(height: 8),
             Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: ListTile(
-                title: const Text('Profit/Loss'),
+                title: const Text(
+                  'Profit/Loss',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 subtitle: Text('KSH $profitLoss'),
+                leading: Icon(
+                    profitLoss.startsWith('-')
+                        ? Icons.trending_down
+                        : Icons.trending_up,
+                    color: profitLoss.startsWith('-') ? Colors.red : Colors.green),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 8.0),
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Labour Activities',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: labourActivities.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${labourActivities[index]['activity']} - KSH ${labourActivities[index]['cost']}'),
-                subtitle: Text('Date: ${labourActivities[index]['date']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteActivity(context, 'labour', index), // Pass context here
-                ),
-              ),
+            _buildSection(
+              context,
+              'Labour Activities',
+              labourActivities,
+              'labour',
+              icon: Icons.person,
+              itemBuilder: (item) =>
+                  '${item['activity']} - KSH ${item['cost']}',
+              subtitleBuilder: (item) => 'Date: ${item['date']}',
             ),
-            const SizedBox(height: 20),
-            const Text('Mechanical Costs',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: mechanicalCosts.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${mechanicalCosts[index]['equipment']} - KSH ${mechanicalCosts[index]['cost']}'),
-                subtitle: Text('Date: ${mechanicalCosts[index]['date']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteActivity(context, 'mechanical', index), // Pass context here
-                ),
-              ),
+            _buildSection(
+              context,
+              'Mechanical Costs',
+              mechanicalCosts,
+              'mechanical',
+              icon: Icons.build,
+              itemBuilder: (item) =>
+                  '${item['equipment']} - KSH ${item['cost']}',
+              subtitleBuilder: (item) => 'Date: ${item['date']}',
             ),
-            const SizedBox(height: 20),
-            const Text('Input Costs',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: inputCosts.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${inputCosts[index]['input']} - KSH ${inputCosts[index]['cost']}'),
-                subtitle: Text('Date: ${inputCosts[index]['date']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteActivity(context, 'input', index), // Pass context here
-                ),
-              ),
+            _buildSection(
+              context,
+              'Input Costs',
+              inputCosts,
+              'input',
+              icon: Icons.agriculture,
+              itemBuilder: (item) => '${item['input']} - KSH ${item['cost']}',
+              subtitleBuilder: (item) => 'Date: ${item['date']}',
             ),
-            const SizedBox(height: 20),
-            const Text('Miscellaneous Costs',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: miscellaneousCosts.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${miscellaneousCosts[index]['description']} - KSH ${miscellaneousCosts[index]['cost']}'),
-                subtitle: Text('Date: ${miscellaneousCosts[index]['date']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteActivity(context, 'miscellaneous', index), // Pass context here
-                ),
-              ),
+            _buildSection(
+              context,
+              'Miscellaneous Costs',
+              miscellaneousCosts,
+              'miscellaneous',
+              icon: Icons.miscellaneous_services,
+              itemBuilder: (item) =>
+                  '${item['description']} - KSH ${item['cost']}',
+              subtitleBuilder: (item) => 'Date: ${item['date']}',
             ),
-            const SizedBox(height: 20),
-            const Text('Revenues',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: revenues.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${revenues[index]['coffeeVariety']} - KSH ${revenues[index]['amount']}'),
-                subtitle: Text(
-                    'Yield: ${revenues[index]['yield']} kg - Date: ${revenues[index]['date']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteActivity(context, 'revenue', index), // Pass context here
-                ),
-              ),
+            _buildSection(
+              context,
+              'Revenues',
+              revenues,
+              'revenue',
+              icon: Icons.monetization_on,
+              itemBuilder: (item) =>
+                  '${item['coffeeVariety']} - KSH ${item['amount']}',
+              subtitleBuilder: (item) =>
+                  'Yield: ${item['yield'] ?? 'N/A'} kg - Date: ${item['date']}',
             ),
-            const SizedBox(height: 20),
-            const Text('Loan Payments',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: paymentHistory.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                    '${paymentHistory[index]['date']} - KSH ${paymentHistory[index]['amount']}'),
-                subtitle: Text(
-                    'Remaining: KSH ${paymentHistory[index]['remainingBalance']}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteActivity(context, 'payment', index), // Pass context here
-                ),
-              ),
+            _buildSection(
+              context,
+              'Loan Payments',
+              paymentHistory,
+              'payment',
+              icon: Icons.payment,
+              itemBuilder: (item) =>
+                  '${item['date']} - KSH ${item['amount']}',
+              subtitleBuilder: (item) =>
+                  'Remaining: KSH ${item['remainingBalance']}',
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSection(
+    BuildContext context,
+    String title,
+    List<Map<String, dynamic>> items,
+    String type, {
+    required IconData icon,
+    required String Function(Map<String, dynamic>) itemBuilder,
+    required String Function(Map<String, dynamic>) subtitleBuilder,
+  }) {
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 16.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        leading: Icon(icon, color: customBrown),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: customBrown,
+          ),
+        ),
+        children: items.isEmpty
+            ? [
+                const ListTile(
+                  title: Text(
+                    'No data available',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ]
+            : items.asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
+                return Column(
+                  children: [
+                    ListTile(
+                      title: Text(itemBuilder(item)),
+                      subtitle: Text(subtitleBuilder(item)),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteActivity(context, type, index),
+                      ),
+                    ),
+                    if (index < items.length - 1)
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                  ],
+                );
+              }).toList(),
       ),
     );
   }
