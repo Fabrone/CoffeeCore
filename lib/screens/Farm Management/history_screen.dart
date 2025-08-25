@@ -3,27 +3,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'historical_data.dart'; // Import your HistoricalData model
 
 class HistoryScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> labourActivities;
-  final List<Map<String, dynamic>> mechanicalCosts;
-  final List<Map<String, dynamic>> inputCosts;
-  final List<Map<String, dynamic>> miscellaneousCosts;
-  final List<Map<String, dynamic>> revenues;
-  final List<Map<String, dynamic>> paymentHistory;
   final String cycleName;
   final List<String> pastCycles;
 
   const HistoryScreen({
     super.key,
-    required this.labourActivities,
-    required this.mechanicalCosts,
-    required this.inputCosts,
-    required this.miscellaneousCosts,
-    required this.revenues,
-    required this.paymentHistory,
     required this.cycleName,
-    required this.pastCycles,
+    required this.pastCycles, required List<Map<String, dynamic>> labourActivities, required List<Map<String, dynamic>> mechanicalCosts, required List<Map<String, dynamic>> inputCosts, required List<Map<String, dynamic>> miscellaneousCosts, required List<Map<String, dynamic>> revenues, required List<Map<String, dynamic>> paymentHistory,
   });
 
   @override
@@ -37,6 +26,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   late SharedPreferences _prefs;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool useFirebase = false;
+  List<HistoricalData> labourActivities = [];
+  List<HistoricalData> mechanicalCosts = [];
+  List<HistoricalData> inputCosts = [];
+  List<HistoricalData> miscellaneousCosts = [];
+  List<HistoricalData> revenues = [];
+  List<HistoricalData> paymentHistory = [];
 
   _HistoryScreenState() : selectedCycle = '';
 
@@ -54,52 +49,32 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _loadCycleData(String cycle) {
     setState(() {
-      widget.labourActivities.clear();
-      widget.mechanicalCosts.clear();
-      widget.inputCosts.clear();
-      widget.miscellaneousCosts.clear();
-      widget.revenues.clear();
-      widget.paymentHistory.clear();
+      labourActivities.clear();
+      mechanicalCosts.clear();
+      inputCosts.clear();
+      miscellaneousCosts.clear();
+      revenues.clear();
+      paymentHistory.clear();
 
       if (!useFirebase) {
-        widget.labourActivities.addAll(
-          (_prefs.getString('labourActivities_$cycle') != null)
-              ? List<Map<String, dynamic>>.from(
-                  jsonDecode(_prefs.getString('labourActivities_$cycle')!))
-              : [],
-        );
-        widget.mechanicalCosts.addAll(
-          (_prefs.getString('mechanicalCosts_$cycle') != null)
-              ? List<Map<String, dynamic>>.from(
-                  jsonDecode(_prefs.getString('mechanicalCosts_$cycle')!))
-              : [],
-        );
-        widget.inputCosts.addAll(
-          (_prefs.getString('inputCosts_$cycle') != null)
-              ? List<Map<String, dynamic>>.from(
-                  jsonDecode(_prefs.getString('inputCosts_$cycle')!))
-              : [],
-        );
-        widget.miscellaneousCosts.addAll(
-          (_prefs.getString('miscellaneousCosts_$cycle') != null)
-              ? List<Map<String, dynamic>>.from(
-                  jsonDecode(_prefs.getString('miscellaneousCosts_$cycle')!))
-              : [],
-        );
-        widget.revenues.addAll(
-          (_prefs.getString('revenues_$cycle') != null)
-              ? List<Map<String, dynamic>>.from(
-                  jsonDecode(_prefs.getString('revenues_$cycle')!))
-              : [],
-        );
-        widget.paymentHistory.addAll(
-          (_prefs.getString('paymentHistory_$cycle') != null)
-              ? List<Map<String, dynamic>>.from(
-                  jsonDecode(_prefs.getString('paymentHistory_$cycle')!))
-              : [],
-        );
+        // Load from SharedPreferences
+        labourActivities.addAll(_loadFromPrefs('labourActivities_$cycle'));
+        mechanicalCosts.addAll(_loadFromPrefs('mechanicalCosts_$cycle'));
+        inputCosts.addAll(_loadFromPrefs('inputCosts_$cycle'));
+        miscellaneousCosts.addAll(_loadFromPrefs('miscellaneousCosts_$cycle'));
+        revenues.addAll(_loadFromPrefs('revenues_$cycle'));
+        paymentHistory.addAll(_loadFromPrefs('paymentHistory_$cycle'));
       }
     });
+  }
+
+  List<HistoricalData> _loadFromPrefs(String key) {
+    final jsonString = _prefs.getString(key);
+    if (jsonString != null) {
+      final List<dynamic> jsonList = jsonDecode(jsonString);
+      return jsonList.map((json) => HistoricalData.fromMap(json)).toList();
+    }
+    return [];
   }
 
   Future<void> _loadFromFirebase(String cycle) async {
@@ -110,8 +85,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       message = 'You must be logged in to fetch from Firebase';
     } else {
       try {
-        DocumentSnapshot doc =
-            await _firestore.collection('farm_data').doc(userId).get();
+        DocumentSnapshot doc = await _firestore.collection('farm_data').doc(userId).get();
         if (!doc.exists) {
           message = 'No data found for this user in Firebase';
         } else {
@@ -122,25 +96,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Map<String, dynamic> cycles = data['cycles'];
             if (cycles.containsKey(cycle)) {
               setState(() {
-                widget.labourActivities.clear();
-                widget.mechanicalCosts.clear();
-                widget.inputCosts.clear();
-                widget.miscellaneousCosts.clear();
-                widget.revenues.clear();
-                widget.paymentHistory.clear();
+                labourActivities.clear();
+                mechanicalCosts.clear();
+                inputCosts.clear();
+                miscellaneousCosts.clear();
+                revenues.clear();
+                paymentHistory.clear();
 
-                widget.labourActivities.addAll(List<Map<String, dynamic>>.from(
-                    cycles[cycle]['labourActivities'] ?? []));
-                widget.mechanicalCosts.addAll(List<Map<String, dynamic>>.from(
-                    cycles[cycle]['mechanicalCosts'] ?? []));
-                widget.inputCosts.addAll(
-                    List<Map<String, dynamic>>.from(cycles[cycle]['inputCosts'] ?? []));
-                widget.miscellaneousCosts.addAll(List<Map<String, dynamic>>.from(
-                    cycles[cycle]['miscellaneousCosts'] ?? []));
-                widget.revenues.addAll(
-                    List<Map<String, dynamic>>.from(cycles[cycle]['revenues'] ?? []));
-                widget.paymentHistory.addAll(List<Map<String, dynamic>>.from(
-                    cycles[cycle]['paymentHistory'] ?? []));
+                labourActivities.addAll(_mapHistoricalData(cycles[cycle]['labourActivities']));
+                mechanicalCosts.addAll(_mapHistoricalData(cycles[cycle]['mechanicalCosts']));
+                inputCosts.addAll(_mapHistoricalData(cycles[cycle]['inputCosts']));
+                miscellaneousCosts.addAll(_mapHistoricalData(cycles[cycle]['miscellaneousCosts']));
+                revenues.addAll(_mapHistoricalData(cycles[cycle]['revenues']));
+                paymentHistory.addAll(_mapHistoricalData(cycles[cycle]['paymentHistory']));
               });
               message = 'Data retrieved from Firebase successfully';
             } else {
@@ -162,24 +130,29 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
-  List<Map<String, dynamic>> filterByDate(List<Map<String, dynamic>> data) {
+  List<HistoricalData> _mapHistoricalData(List<dynamic>? data) {
+    if (data != null) {
+      return data.map((item) => HistoricalData.fromMap(item)).toList();
+    }
+    return [];
+  }
+
+  List<HistoricalData> filterByDate(List<HistoricalData> data) {
     if (startDate == null || endDate == null) return data;
     return data.where((item) {
-      if (!item.containsKey('date')) return true;
-      DateTime itemDate = DateTime.parse(item['date']);
-      return itemDate.isAfter(startDate!.subtract(const Duration(days: 1))) &&
-          itemDate.isBefore(endDate!.add(const Duration(days: 1)));
+      return item.date.isAfter(startDate!.subtract(const Duration(days: 1))) &&
+             item.date.isBefore(endDate!.add(const Duration(days: 1)));
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    var filteredLabour = filterByDate(widget.labourActivities);
-    var filteredMechanical = filterByDate(widget.mechanicalCosts);
-    var filteredInputs = filterByDate(widget.inputCosts);
-    var filteredMisc = filterByDate(widget.miscellaneousCosts);
-    var filteredRevenues = filterByDate(widget.revenues);
-    var filteredPayments = filterByDate(widget.paymentHistory);
+    var filteredLabour = filterByDate(labourActivities);
+    var filteredMechanical = filterByDate(mechanicalCosts);
+    var filteredInputs = filterByDate(inputCosts);
+    var filteredMisc = filterByDate(miscellaneousCosts);
+    var filteredRevenues = filterByDate(revenues);
+    var filteredPayments = filterByDate(paymentHistory);
 
     return Scaffold(
       appBar: AppBar(title: const Text('History')),
@@ -262,8 +235,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 itemBuilder: (context, index) {
                   final item = filteredLabour[index];
                   return ListTile(
-                    title: Text('${item['activity']} - KSH ${item['cost']}'),
-                    subtitle: Text('Date: ${item['date']}'),
+                    title: Text('${item.activity} - KSH ${item.cost}'),
+                    subtitle: Text('Date: ${item.date.toIso8601String().substring(0, 10)}'),
                   );
                 },
               ),
@@ -279,8 +252,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 itemBuilder: (context, index) {
                   final item = filteredMechanical[index];
                   return ListTile(
-                    title: Text('${item['equipment']} - KSH ${item['cost']}'),
-                    subtitle: Text('Date: ${item['date']}'),
+                    title: Text('${item.activity} - KSH ${item.cost}'),
+                    subtitle: Text('Date: ${item.date.toIso8601String().substring(0, 10)}'),
                   );
                 },
               ),
@@ -296,8 +269,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 itemBuilder: (context, index) {
                   final item = filteredInputs[index];
                   return ListTile(
-                    title: Text('${item['input']} - KSH ${item['cost']}'),
-                    subtitle: Text('Date: ${item['date']}'),
+                    title: Text('${item.activity} - KSH ${item.cost}'),
+                    subtitle: Text('Date: ${item.date.toIso8601String().substring(0, 10)}'),
                   );
                 },
               ),
@@ -313,8 +286,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 itemBuilder: (context, index) {
                   final item = filteredMisc[index];
                   return ListTile(
-                    title: Text('${item['description']} - KSH ${item['cost']}'),
-                    subtitle: Text('Date: ${item['date']}'),
+                    title: Text('${item.activity} - KSH ${item.cost}'),
+                    subtitle: Text('Date: ${item.date.toIso8601String().substring(0, 10)}'),
                   );
                 },
               ),
@@ -330,9 +303,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 itemBuilder: (context, index) {
                   final item = filteredRevenues[index];
                   return ListTile(
-                    title: Text('${item['coffeeVariety']} - KSH ${item['amount']}'),
-                    subtitle:
-                        Text('Yield: ${item['yield']} kg - Date: ${item['date']}'),
+                    title: Text('${item.activity} - KSH ${item.cost}'),
+                    subtitle: Text('Date: ${item.date.toIso8601String().substring(0, 10)}'),
                   );
                 },
               ),
@@ -348,8 +320,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 itemBuilder: (context, index) {
                   final item = filteredPayments[index];
                   return ListTile(
-                    title: Text('${item['date']} - KSH ${item['amount']}'),
-                    subtitle: Text('Remaining: KSH ${item['remainingBalance']}'),
+                    title: Text('${item.date.toIso8601String().substring(0, 10)} - KSH ${item.cost}'),
+                    subtitle: Text('Remaining: KSH ${item.cost}'),
                   );
                 },
               ),

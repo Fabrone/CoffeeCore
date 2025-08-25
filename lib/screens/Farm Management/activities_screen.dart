@@ -1,4 +1,8 @@
+import 'package:coffeecore/screens/Farm Management/firestore_service.dart';
+import 'package:coffeecore/screens/Farm Management/historical_data.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:logger/logger.dart'; // Import logging package
 
 class ActivitiesScreen extends StatelessWidget {
   final List<Map<String, dynamic>> labourActivities;
@@ -11,7 +15,7 @@ class ActivitiesScreen extends StatelessWidget {
   final String profitLoss;
   final Function(String, int) onDelete;
 
-  const ActivitiesScreen({
+  ActivitiesScreen({
     super.key,
     required this.labourActivities,
     required this.mechanicalCosts,
@@ -24,8 +28,81 @@ class ActivitiesScreen extends StatelessWidget {
     required this.onDelete,
   });
 
+  final FirestoreService _firestoreService = FirestoreService();
+  final String userUid = FirebaseAuth.instance.currentUser!.uid; // Get current user's UID
+  final Logger logger = Logger(); // Initialize logger
+
+  // Function to delete activity and save historical data
+  Future<void> _deleteActivity(BuildContext context, String type, int index) async {
+    try {
+      logger.i('Attempting to delete $type activity at index $index'); // Log the activity type and index
+      Map<String, dynamic> activityData;
+
+      switch (type) {
+        case 'labour':
+          activityData = labourActivities[index];
+          break;
+        case 'mechanical':
+          activityData = mechanicalCosts[index];
+          break;
+        case 'input':
+          activityData = inputCosts[index];
+          break;
+        case 'miscellaneous':
+          activityData = miscellaneousCosts[index];
+          break;
+        case 'revenue':
+          activityData = revenues[index];
+          break;
+        case 'payment':
+          activityData = paymentHistory[index];
+          break;
+        default:
+          logger.e('Unknown activity type: $type'); // Log unknown type
+          throw Exception('Unknown activity type');
+      }
+
+      HistoricalData historicalData = HistoricalData(
+        activity: activityData['activity'] ?? activityData['description'] ?? activityData['coffeeVariety'],
+        cost: activityData['cost'],
+        date: activityData['date'],
+        userId: userUid, // Use the user's UID
+      );
+
+      logger.i('Deleting activity: ${historicalData.activity}, Cost: ${historicalData.cost}'); // Log activity details
+      await _firestoreService.deleteFarmData(userUid, historicalData); // Call to delete from Firestore
+      onDelete(type, index); // Call the onDelete function passed in
+
+      logger.i('Activity deleted successfully!'); // Log success message
+    } catch (error) {
+      logger.e('Failed to delete activity: $error'); // Log error
+      _showErrorDialog(context, 'Error Deleting Activity', 'Could not delete the activity. Please try again later.'); // Pass context
+    }
+  }
+
+  // Function to show error dialog
+  void _showErrorDialog(BuildContext context, String title, String message) {
+    logger.w('Showing error dialog: $title - $message'); // Log error dialog details
+    showDialog(
+      context: context, // Use the context from the build method
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    logger.i('Building ActivitiesScreen'); // Log when the screen is built
     return Scaffold(
       appBar: AppBar(title: const Text('All Farm Activities')),
       body: SingleChildScrollView(
@@ -58,7 +135,7 @@ class ActivitiesScreen extends StatelessWidget {
                 subtitle: Text('Date: ${labourActivities[index]['date']}'),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('labour', index),
+                  onPressed: () => _deleteActivity(context, 'labour', index), // Pass context here
                 ),
               ),
             ),
@@ -75,7 +152,7 @@ class ActivitiesScreen extends StatelessWidget {
                 subtitle: Text('Date: ${mechanicalCosts[index]['date']}'),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('mechanical', index),
+                  onPressed: () => _deleteActivity(context, 'mechanical', index), // Pass context here
                 ),
               ),
             ),
@@ -92,7 +169,7 @@ class ActivitiesScreen extends StatelessWidget {
                 subtitle: Text('Date: ${inputCosts[index]['date']}'),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('input', index),
+                  onPressed: () => _deleteActivity(context, 'input', index), // Pass context here
                 ),
               ),
             ),
@@ -109,7 +186,7 @@ class ActivitiesScreen extends StatelessWidget {
                 subtitle: Text('Date: ${miscellaneousCosts[index]['date']}'),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('miscellaneous', index),
+                  onPressed: () => _deleteActivity(context, 'miscellaneous', index), // Pass context here
                 ),
               ),
             ),
@@ -127,7 +204,7 @@ class ActivitiesScreen extends StatelessWidget {
                     'Yield: ${revenues[index]['yield']} kg - Date: ${revenues[index]['date']}'),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('revenue', index),
+                  onPressed: () => _deleteActivity(context, 'revenue', index), // Pass context here
                 ),
               ),
             ),
@@ -145,7 +222,7 @@ class ActivitiesScreen extends StatelessWidget {
                     'Remaining: KSH ${paymentHistory[index]['remainingBalance']}'),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => onDelete('payment', index),
+                  onPressed: () => _deleteActivity(context, 'payment', index), // Pass context here
                 ),
               ),
             ),

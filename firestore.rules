@@ -35,7 +35,7 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid));
     }
 
-    // SoilData collection - NEW ENHANCED COLLECTION
+    // SoilData collection
     match /SoilData/{documentId} {
       allow read: if isAuthenticated() &&
                    (request.auth.uid == resource.data.userId ||
@@ -141,7 +141,15 @@ service cloud.firestore {
                                      isMarketManager(collection.replace('_coffeeprices', '')));
     }
 
-    // Legacy coffee soil data - KEEP FOR BACKWARD COMPATIBILITY
+    // New Activity Data collection
+    match /Activities/{activityId} {
+      allow read: if isAuthenticated(); // All authenticated users can read activities
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId; // Only the user can create their activities
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin()); // Users can update their own activities or admins can update any
+      allow delete: if isAdmin() || (request.auth.uid == resource.data.userId); // Users can delete their own activities or admins can delete any
+    }
+
+    // Legacy coffee soil data
     match /coffee_soil_data/{documentId} {
       allow read: if isAuthenticated() &&
                    (request.auth.uid == resource.data.userId ||
