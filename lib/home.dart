@@ -2,7 +2,7 @@ import 'package:coffeecore/screens/Cooperative%20Section/coffee_prices.dart';
 import 'package:coffeecore/screens/Cooperative%20Section/coop_admin_management_screen.dart';
 import 'package:coffeecore/screens/Cooperative%20Section/market_manager_screen.dart';
 import 'package:coffeecore/screens/Farm%20Management/coffee_management_screen.dart';
-import 'package:coffeecore/screens/Farm%20Management/farm_management_screen.dart';
+//import 'package:coffeecore/screens/Farm%20Management/farm_management_screen.dart';
 import 'package:coffeecore/screens/Field%20Data/coffee_soil_home_page.dart';
 import 'package:coffeecore/screens/admin/admin_management_screen.dart';
 import 'package:flutter/material.dart';
@@ -780,7 +780,7 @@ class _HomePageState extends State<HomePage> {
             Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => const FarmManagementScreen()));
+                    builder: (context) => const CoffeeManagementScreen()));
           }),
           _buildDrawerItem(Icons.book, 'Coffee Manuals', () {
             Navigator.push(
