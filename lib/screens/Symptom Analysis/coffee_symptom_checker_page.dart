@@ -10,7 +10,9 @@ class CoffeeSymptomCheckerPage extends StatefulWidget {
 }
 
 class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> with SingleTickerProviderStateMixin {
-  // Symptom data organized by plant section and pest/disease
+  static final Color coffeeBrown = Colors.brown[700]!;
+  static final Color backgroundColor = Colors.brown[50]!;
+
   final Map<String, Map<String, List<String>>> symptoms = {
     'Roots': {
       'Pests': [
@@ -104,7 +106,6 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
     },
   };
 
-  // Store selected symptoms
   Map<String, List<bool>> selectedSymptoms = {
     'Roots': [],
     'Stems/Branches': [],
@@ -114,21 +115,19 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
   };
 
   bool _isLoading = false;
-    late AnimationController _animationController;
-    late Animation<int> _guideTextAnimation; // Changed to Animation<int>
-    final String _guideText = 'Welcome to the Symptom Checker! Select the symptoms you observe on your coffee plant by checking the boxes below. Choose symptoms from Roots, Stems/Branches, Leaves, Fruits, or Flowers. Once done, press the floating button to analyze whether it’s a pest or disease issue.';
-    String _currentGuideText = ''; // Added to hold the current text state
-    
+  late AnimationController _animationController;
+  late Animation<int> _guideTextAnimation;
+  final String _guideText = 'Welcome to the Symptom Checker! Select the symptoms you observe on your coffee plant by checking the boxes below. Choose symptoms from Roots, Stems/Branches, Leaves, Fruits, or Flowers. Once done, press the floating button to analyze whether it’s a pest or disease issue.';
+  String _currentGuideText = '';
+
   @override
   void initState() {
     super.initState();
-    // Initialize selectedSymptoms with false for each symptom
     symptoms.forEach((section, categories) {
       int totalSymptoms = categories['Pests']!.length + categories['Diseases']!.length;
       selectedSymptoms[section] = List.filled(totalSymptoms, false);
     });
 
-    // Setup animation for guide text
     _animationController = AnimationController(
       duration: const Duration(seconds: 5),
       vsync: this,
@@ -151,19 +150,30 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
     super.dispose();
   }
 
+  void _resetSymptoms() {
+    setState(() {
+      selectedSymptoms.forEach((section, value) {
+        selectedSymptoms[section] = List.filled(value.length, false);
+      });
+    });
+  }
+
   void _analyzeSymptoms() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(seconds: 1));
 
     int pestCount = 0;
     int diseaseCount = 0;
     int totalSelected = 0;
+    Map<String, List<String>> symptomDetails = {};
 
     symptoms.forEach((section, categories) {
       List<String> allSymptoms = [...categories['Pests']!, ...categories['Diseases']!];
+      symptomDetails[section] = [];
       for (int i = 0; i < allSymptoms.length; i++) {
         if (selectedSymptoms[section]![i]) {
           totalSelected++;
+          symptomDetails[section]!.add(allSymptoms[i]);
           if (i < categories['Pests']!.length) {
             pestCount++;
           } else {
@@ -180,11 +190,35 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
       resultMessage = 'Please select at least one symptom to analyze.';
       navigationButton = const SizedBox.shrink();
     } else {
-      double pestPercentage = (pestCount / totalSelected) * 100;
-      double diseasePercentage = (diseaseCount / totalSelected) * 100;
+      double pestPercentage = totalSelected > 0 ? (pestCount / totalSelected) * 100 : 0;
+      double diseasePercentage = totalSelected > 0 ? (diseaseCount / totalSelected) * 100 : 0;
 
-      if (pestPercentage >= 60) {
-        resultMessage = 'Based on your symptoms, it’s likely a pest issue (${pestPercentage.toStringAsFixed(1)}% pest-related). Let’s analyze further.';
+      StringBuffer details = StringBuffer();
+      symptomDetails.forEach((section, symptoms) {
+        if (symptoms.isNotEmpty) {
+          details.writeln('$section:');
+          for (var symptom in symptoms) {
+            bool isPest = false;
+            bool isDisease = false;
+            if (this.symptoms[section]!['Pests']!.contains(symptom)) {
+              isPest = true;
+            }
+            if (this.symptoms[section]!['Diseases']!.contains(symptom)) {
+              isDisease = true;
+            }
+            String type = isPest && isDisease ? 'Pest & Disease' : isPest ? 'Pest' : 'Disease';
+            details.writeln('  • $symptom ($type)');
+          }
+        }
+      });
+
+      resultMessage = 'Analysis Results:\n'
+          'Pest-related symptoms: ${pestPercentage.toStringAsFixed(1)}% ($pestCount/$totalSelected)\n'
+          'Disease-related symptoms: ${diseasePercentage.toStringAsFixed(1)}% ($diseaseCount/$totalSelected)\n\n'
+          'Selected Symptoms:\n${details.toString()}';
+
+      if (pestPercentage > diseasePercentage + 10) {
+        resultMessage += '\nThe symptoms lean toward a pest issue. Proceed to pest analysis for details.';
         navigationButton = ElevatedButton(
           onPressed: () => Navigator.push(
             context,
@@ -193,13 +227,13 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
             ),
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6F4E37),
+            backgroundColor: coffeeBrown,
             foregroundColor: Colors.white,
           ),
           child: const Text('Analyze Pests Further'),
         );
-      } else if (diseasePercentage >= 60) {
-        resultMessage = 'Based on your symptoms, it’s likely a disease issue (${diseasePercentage.toStringAsFixed(1)}% disease-related). Let’s analyze further.';
+      } else if (diseasePercentage > pestPercentage + 10) {
+        resultMessage += '\nThe symptoms lean toward a disease issue. Proceed to disease analysis for details.';
         navigationButton = ElevatedButton(
           onPressed: () => Navigator.push(
             context,
@@ -208,13 +242,13 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
             ),
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6F4E37),
+            backgroundColor: coffeeBrown,
             foregroundColor: Colors.white,
           ),
           child: const Text('Analyze Diseases Further'),
         );
       } else {
-        resultMessage = 'Symptoms are inconclusive (Pests: ${pestPercentage.toStringAsFixed(1)}%, Diseases: ${diseasePercentage.toStringAsFixed(1)}%). Explore both options.';
+        resultMessage += '\nThe symptoms are inconclusive due to overlap. Explore both pest and disease analysis.';
         navigationButton = Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -224,7 +258,7 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
                 MaterialPageRoute(builder: (context) => CoffeePestSymptomAnalysisPage(selectedSymptoms: _getSelectedSymptoms())),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4E37),
+                backgroundColor: coffeeBrown,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Pests'),
@@ -236,7 +270,7 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
                 MaterialPageRoute(builder: (context) => CoffeeDiseaseSymptomAnalysisPage(selectedSymptoms: _getSelectedSymptoms())),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4E37),
+                backgroundColor: coffeeBrown,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Diseases'),
@@ -252,13 +286,32 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Initial Analysis'),
-          content: Text(resultMessage),
+          title: const Text('Symptom Analysis', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Analysis Results', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.brown)),
+                const SizedBox(height: 8),
+                Text(
+                  resultMessage.split('\nSelected Symptoms:')[0],
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                const Text('Selected Symptoms', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.brown)),
+                const SizedBox(height: 8),
+                Text(
+                  resultMessage.split('\nSelected Symptoms:')[1],
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ],
+            ),
+          ),
           actions: [
             navigationButton,
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: const Text('Close', style: TextStyle(color: Colors.brown)),
             ),
           ],
         ),
@@ -279,29 +332,42 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Symptom Checker', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF6F4E37),
+        title: const Text(
+          'Symptom Checker',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: coffeeBrown,
         foregroundColor: Colors.white,
       ),
       body: Stack(
         children: [
           Container(
-            color: Colors.grey[200],
+            color: backgroundColor,
             padding: const EdgeInsets.all(16.0),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Card(
-                    elevation: 2,
+                    elevation: 4,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: Text(
-                        _currentGuideText, // Use the current text state here
-                        style: const TextStyle(fontSize: 14, color: Colors.black87),
+                        _currentGuideText,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _resetSymptoms,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: coffeeBrown,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Reset Symptoms'),
                   ),
                   const SizedBox(height: 16),
                   _buildSection('Roots'),
@@ -313,7 +379,7 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
                   _buildSection('Fruits'),
                   const SizedBox(height: 16),
                   _buildSection('Flowers'),
-                  const SizedBox(height: 80), // Space for FAB
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
@@ -321,15 +387,15 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
           if (_isLoading)
             Container(
               color: Colors.black54,
-              child: const Center(
-                child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6F4E37))),
+              child: Center(
+                child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(coffeeBrown)),
               ),
             ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _isLoading ? null : _analyzeSymptoms,
-        backgroundColor: const Color(0xFF6F4E37),
+        backgroundColor: coffeeBrown,
         tooltip: 'Analyze Symptoms',
         child: const Icon(Icons.search, color: Colors.white),
       ),
@@ -342,7 +408,7 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
     final allSymptoms = [...pestSymptoms, ...diseaseSymptoms];
 
     return Card(
-      elevation: 2,
+      elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
@@ -351,7 +417,7 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
           children: [
             Text(
               section,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6F4E37)),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: coffeeBrown),
             ),
             const SizedBox(height: 8),
             ...List.generate(allSymptoms.length, (index) {
@@ -363,7 +429,7 @@ class _CoffeeSymptomCheckerPageState extends State<CoffeeSymptomCheckerPage> wit
                     selectedSymptoms[section]![index] = value!;
                   });
                 },
-                activeColor: const Color(0xFF6F4E37),
+                activeColor: coffeeBrown,
                 controlAffinity: ListTileControlAffinity.leading,
                 dense: true,
               );
