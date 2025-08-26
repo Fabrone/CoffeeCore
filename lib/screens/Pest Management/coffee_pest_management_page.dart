@@ -1,18 +1,23 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:coffeecore/models/coffee_pest_models.dart'; 
+import 'package:coffeecore/models/coffee_pest_models.dart';
 import 'package:coffeecore/screens/Pest%20Management/coffee_intervention_page.dart';
 import 'package:coffeecore/screens/Pest%20Management/coffee_user_pest_history.dart';
 
 class CoffeePestManagementPage extends StatefulWidget {
-  const CoffeePestManagementPage({super.key});
+  final String? pestName;
+  final String? coffeeStage;
+
+  const CoffeePestManagementPage({this.pestName, this.coffeeStage, super.key});
 
   @override
   State<CoffeePestManagementPage> createState() => _CoffeePestManagementPageState();
 }
 
 class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
+  static final Color coffeeBrown = Colors.brown[700]!;
+  static final Color backgroundColor = Colors.brown[50]!;
   String? _selectedStage;
   String? _selectedPest;
   CoffeePestData? _pestData;
@@ -38,6 +43,8 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'Coffee Mealybug',
       'Caterpillars',
       'Ants',
+      'Scale Insects',
+      'Thrips',
     ],
     'Flowering & Fruit Development': [
       'Coffee Berry Borer',
@@ -46,6 +53,8 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
       'Coffee Mealybug',
       'Caterpillars',
       'Ants',
+      'Scale Insects',
+      'Thrips',
     ],
     'Post-harvest / Storage': ['Coffee Weevil'],
   };
@@ -54,7 +63,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
   final Map<String, Map<String, dynamic>> _pestDetails = {
     'Coffee Berry Borer': {
       'description': 'A small beetle that bores into coffee cherries to lay eggs, and the larvae feed on the beans inside.',
-      'symptoms': 'Infested cherries have small holes, and the beans are damaged, leading to poor quality.',
+      'symptoms': 'Infested cherries have small holes, and the beans are damaged, with powdery frass or larvae inside.',
       'chemicalControls': ['Imidacloprid', 'Lambda-cyhalothrin'],
       'mechanicalControls': ['Pheromone traps'],
       'biologicalControls': ['Parasitoid wasps'],
@@ -71,7 +80,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
     },
     'Coffee Leaf Miner': {
       'description': 'A small moth whose larvae mine the leaves of coffee plants.',
-      'symptoms': 'Irregular, silvery streaks or tunnels on the leaves. In severe infestations, leaves can die off.',
+      'symptoms': 'Irregular, silvery streaks or tunnels on leaves, with premature leaf drop in severe cases.',
       'chemicalControls': ['Malathion', 'Permethrin'],
       'mechanicalControls': [],
       'biologicalControls': ['Parasitoid wasps'],
@@ -87,7 +96,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
     },
     'Coffee Antestia Bug': {
       'description': 'A sap-sucking bug that damages coffee berries.',
-      'symptoms': 'Fruit deformities, premature fruit drop, reduced size, and weight of the cherries.',
+      'symptoms': 'Deformed or discolored cherries, premature fruit drop, sticky honeydew on leaves or fruits.',
       'chemicalControls': ['Cypermethrin', 'Lambda-cyhalothrin', 'Deltamethrin'],
       'mechanicalControls': ['Pruning and cleaning practices'],
       'biologicalControls': [],
@@ -102,7 +111,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
     },
     'Coffee Stem Borer': {
       'description': 'A beetle that bores into the stems and branches of coffee plants.',
-      'symptoms': 'Holes in the stem or branches, weakening the plant and causing it to break.',
+      'symptoms': 'Holes in stems or branches, sawdust-like frass, weakened or snapping branches.',
       'chemicalControls': ['Carbaryl', 'Permethrin'],
       'mechanicalControls': ['Pruning of infested branches'],
       'biologicalControls': [],
@@ -117,7 +126,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
     },
     'Root-Knot Nematodes': {
       'description': 'Nematodes that attack the roots of coffee plants, causing galls.',
-      'symptoms': 'Root galls, yellowing leaves, stunted growth, and poor fruit development.',
+      'symptoms': 'Swollen or knotted roots, yellowing leaves, wilting despite adequate watering.',
       'chemicalControls': ['Fenamiphos', 'Oxamyl', 'Carbofuran'],
       'mechanicalControls': [],
       'biologicalControls': [],
@@ -131,7 +140,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
     },
     'White Flies': {
       'description': 'Tiny white flying insects that suck sap from coffee plants.',
-      'symptoms': 'Yellowing of leaves, sticky honeydew that leads to sooty mold growth.',
+      'symptoms': 'Yellowing leaves, sticky honeydew, sooty mold, cloud of white insects when disturbed.',
       'chemicalControls': ['Imidacloprid', 'Lambda-cyhalothrin'],
       'mechanicalControls': [],
       'biologicalControls': ['Natural predators like ladybugs'],
@@ -146,7 +155,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
     },
     'Coffee Mealybug': {
       'description': 'Sap-sucking insect covered with a waxy coating.',
-      'symptoms': 'Leaves curl, plants weaken, and honeydew causes mold growth.',
+      'symptoms': 'White, waxy insects or cotton-like masses on leaves or stems, sticky honeydew, sooty mold.',
       'chemicalControls': ['Imidacloprid', 'Pyrethrins', 'Malathion'],
       'mechanicalControls': [],
       'biologicalControls': ['Parasitoid wasps'],
@@ -160,7 +169,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
     },
     'Caterpillars': {
       'description': 'Larvae of moths that feed on coffee leaves and fruit.',
-      'symptoms': 'Holes in the leaves and fruit.',
+      'symptoms': 'Irregular holes in leaves or fruits, skeletonized leaves, visible caterpillars, silk threads.',
       'chemicalControls': ['Bacillus thuringiensis (Bt)'],
       'mechanicalControls': [],
       'biologicalControls': ['Trichogramma spp.'],
@@ -175,7 +184,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
     },
     'Coffee Weevil': {
       'description': 'A pest that attacks stored coffee beans.',
-      'symptoms': 'Holes in the coffee beans, often leading to poor quality and reduced marketability.',
+      'symptoms': 'Holes in stored coffee beans, damaged or hollowed-out beans, powdery debris in storage.',
       'chemicalControls': ['Permethrin'],
       'mechanicalControls': ['Proper storage conditions', 'Fumigation'],
       'biologicalControls': [],
@@ -192,7 +201,7 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
     },
     'Ants': {
       'description': 'Certain ants protect and farm pests like aphids or mealybugs.',
-      'symptoms': 'Ants promote the spread of pests by protecting them in exchange for honeydew.',
+      'symptoms': 'Presence of ants tending pests, sticky honeydew on leaves or fruits, ant trails on stems.',
       'chemicalControls': ['Permethrin', 'Cypermethrin'],
       'mechanicalControls': ['Ant baits'],
       'biologicalControls': [],
@@ -205,12 +214,47 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
         'assets/pests/ants4.png',
       ],
     },
+    'Scale Insects': {
+      'description': 'Small insects with waxy shells that suck sap from coffee plants.',
+      'symptoms': 'Small, flat, oval insects or waxy shells on leaves or stems, sticky honeydew, sooty mold.',
+      'chemicalControls': ['Imidacloprid', 'Horticultural oil'],
+      'mechanicalControls': ['Pruning affected parts'],
+      'biologicalControls': ['Ladybugs', 'Parasitoid wasps'],
+      'possibleCauses': ['Warm, humid conditions', 'Poor plant health'],
+      'preventiveMeasures': ['Monitor plant health', 'Improve air circulation'],
+      'lifecycleImages': [
+        'assets/pests/scale_insects1.png',
+        'assets/pests/scale_insects2.png',
+        'assets/pests/scale_insects3.png',
+      ],
+    },
+    'Thrips': {
+      'description': 'Tiny, slender insects that feed on leaves, fruits, and flowers.',
+      'symptoms': 'Silvering or bronzing of leaves, tiny insects on leaves or flowers, deformed buds.',
+      'chemicalControls': ['Spinosad', 'Imidacloprid'],
+      'mechanicalControls': [],
+      'biologicalControls': ['Predatory mites'],
+      'possibleCauses': ['Dry conditions', 'Nearby host plants'],
+      'preventiveMeasures': ['Remove weeds', 'Monitor for early signs'],
+      'lifecycleImages': [
+        'assets/pests/thrips1.png',
+        'assets/pests/thrips2.png',
+        'assets/pests/thrips3.png',
+      ],
+    },
   };
 
   @override
   void initState() {
     super.initState();
     _initializeNotifications();
+    if (widget.pestName != null && widget.coffeeStage != null) {
+      _selectedPest = widget.pestName;
+      _selectedStage = widget.coffeeStage;
+      _updatePestDetails();
+      _showPestDetails = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToHints());
+    }
   }
 
   @override
@@ -265,33 +309,35 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Coffee Pest Management', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF6F4E37), // Coffee brown
+        backgroundColor: coffeeBrown,
         foregroundColor: Colors.white,
       ),
       body: Container(
-        color: Colors.grey[200],
+        color: backgroundColor,
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
           controller: _scrollController,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildDropdown('Coffee Stage', _stages, _selectedStage, (val) {
-                setState(() {
-                  _selectedStage = val;
-                  _selectedPest = null;
-                  _pestData = null;
-                  _showPestDetails = false;
-                });
-              }),
-              const SizedBox(height: 16),
-              _buildDropdown('Select Pest', _selectedStage != null ? _stagePests[_selectedStage]! : [], _selectedPest, (val) {
-                setState(() {
-                  _selectedPest = val;
-                  _updatePestDetails();
-                  _showPestDetails = false;
-                });
-              }),
+              if (widget.pestName == null) ...[
+                _buildDropdown('Coffee Stage', _stages, _selectedStage, (val) {
+                  setState(() {
+                    _selectedStage = val;
+                    _selectedPest = null;
+                    _pestData = null;
+                    _showPestDetails = false;
+                  });
+                }),
+                const SizedBox(height: 16),
+                _buildDropdown('Select Pest', _selectedStage != null ? _stagePests[_selectedStage]! : [], _selectedPest, (val) {
+                  setState(() {
+                    _selectedPest = val;
+                    _updatePestDetails();
+                    _showPestDetails = false;
+                  });
+                }),
+              ],
               if (_pestData != null) ...[
                 const SizedBox(height: 16),
                 _buildLifecycleCarousel(_pestData!.lifecycleImages),
@@ -310,10 +356,10 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
                     scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Please select a pest first')));
                   }
                 },
-                child: const Text(
-                  'View Pest Management Details',
+                child: Text(
+                  _showPestDetails ? 'Hide Pest Management Details' : 'View Pest Management Details',
                   style: TextStyle(
-                    color: Color(0xFF6F4E37),
+                    color: coffeeBrown,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     decoration: TextDecoration.underline,
@@ -329,9 +375,10 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6F4E37),
+                  backgroundColor: coffeeBrown,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 child: const Text('View My Pest History'),
               ),
@@ -363,9 +410,10 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6F4E37),
+                          backgroundColor: coffeeBrown,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         child: const Text('Manage Pest'),
                       ),
@@ -382,7 +430,8 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
 
   Widget _buildDropdown(String label, List<String> items, String? value, ValueChanged<String?> onChanged) {
     return Card(
-      elevation: 2,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: DropdownButtonFormField<String>(
@@ -402,13 +451,14 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
 
   Widget _buildLifecycleCarousel(List<String> images) {
     return Card(
-      elevation: 2,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Pest Images', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('Pest Images', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: coffeeBrown)),
             const SizedBox(height: 8),
             SizedBox(
               height: 150,
@@ -436,19 +486,20 @@ class _CoffeePestManagementPageState extends State<CoffeePestManagementPage> {
 
   Widget _buildHintCard(String title, String content, IconData icon) {
     return Card(
-      elevation: 2,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: const Color(0xFF6F4E37), size: 24),
+            Icon(icon, color: coffeeBrown, size: 24),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: coffeeBrown)),
                   const SizedBox(height: 8),
                   Text(content, style: const TextStyle(fontSize: 14)),
                 ],
