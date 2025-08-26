@@ -2,7 +2,7 @@ import 'package:coffeecore/screens/Pest%20Management/coffee_pest_management_page
 import 'package:flutter/material.dart';
 
 class CoffeePestSymptomAnalysisPage extends StatefulWidget {
-  final Map<String, List<String>> selectedSymptoms;
+  final Map<String, List<Map<String, dynamic>>> selectedSymptoms;
 
   const CoffeePestSymptomAnalysisPage({required this.selectedSymptoms, super.key});
 
@@ -17,9 +17,10 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
   Map<String, List<bool>> additionalSymptoms = {};
   Map<String, List<Map<String, dynamic>>> filteredPestSymptoms = {};
   Map<String, List<String>> allSelectedSymptoms = {};
-  List<String> matchingPests = []; // Store closely matching pests
+  List<String> matchingPests = [];
+  int analysisIterations = 0;
+  static const int maxIterations = 3;
 
-  // Comprehensive pest symptoms, organized by plant section, with weights and clusters
   final Map<String, Map<String, List<Map<String, dynamic>>>> pestSymptoms = {
     'Coffee Berry Borer': {
       'Fruits': [
@@ -163,7 +164,6 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
     },
   };
 
-  // Coffee stages for inference
   final Map<String, List<String>> _stagePests = {
     'Vegetative Stage': [
       'Coffee Leaf Miner',
@@ -192,12 +192,19 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
   @override
   void initState() {
     super.initState();
-    allSelectedSymptoms = Map.from(widget.selectedSymptoms);
+    allSelectedSymptoms = _convertToSymptomStrings(widget.selectedSymptoms);
     _initializeAdditionalSymptoms();
   }
 
+  Map<String, List<String>> _convertToSymptomStrings(Map<String, List<Map<String, dynamic>>> input) {
+    Map<String, List<String>> result = {};
+    input.forEach((section, symptoms) {
+      result[section] = symptoms.map((s) => s['symptom'] as String).toList();
+    });
+    return result;
+  }
+
   void _initializeAdditionalSymptoms() {
-    // Identify pests with at least one matching symptom
     matchingPests = [];
     for (var pest in pestSymptoms.keys) {
       bool hasMatch = false;
@@ -217,7 +224,6 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
       }
     }
 
-    // Initialize additional symptoms for matching pests
     filteredPestSymptoms = {};
     for (var pest in matchingPests) {
       for (var section in pestSymptoms[pest]!.keys) {
@@ -229,7 +235,6 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
       }
     }
 
-    // Remove duplicate symptoms and ensure non-empty sections
     for (var section in filteredPestSymptoms.keys.toList()) {
       filteredPestSymptoms[section] = filteredPestSymptoms[section]!.toSet().toList();
       if (filteredPestSymptoms[section]!.isEmpty) {
@@ -237,7 +242,6 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
       }
     }
 
-    // Initialize checkbox states
     for (var section in filteredPestSymptoms.keys) {
       additionalSymptoms[section] = List.filled(filteredPestSymptoms[section]!.length, false);
     }
@@ -248,6 +252,7 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
       for (var section in additionalSymptoms.keys) {
         additionalSymptoms[section] = List.filled(additionalSymptoms[section]!.length, false);
       }
+      analysisIterations = 0;
     });
   }
 
@@ -255,8 +260,47 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(seconds: 1));
 
-    // Update allSelectedSymptoms with additional symptoms
-    allSelectedSymptoms = Map.from(widget.selectedSymptoms);
+    // Check if any additional symptoms are selected
+    bool hasNewSymptoms = false;
+    for (var section in additionalSymptoms.keys) {
+      if (additionalSymptoms[section]!.any((selected) => selected)) {
+        hasNewSymptoms = true;
+        break;
+      }
+    }
+
+    if (!hasNewSymptoms && analysisIterations > 0) {
+      setState(() => _isLoading = false);
+      StringBuffer resultMessage = StringBuffer();
+      resultMessage.writeln('No new symptoms selected. Please select additional symptoms and press the search icon to continue analysis.');
+      resultMessage.writeln('\nCurrent matching pests:');
+      for (var pest in matchingPests) {
+        resultMessage.writeln('  • **$pest**');
+      }
+      _showResult(
+        resultMessage.toString(),
+        [
+          ElevatedButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CoffeePestManagementPage()),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: coffeeBrown,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Explore Pest Management'),
+          ),
+        ],
+        null,
+        null,
+      );
+      return;
+    }
+
+    // Update allSelectedSymptoms with new selections
+    allSelectedSymptoms = _convertToSymptomStrings(widget.selectedSymptoms);
     for (var section in filteredPestSymptoms.keys) {
       if (!allSelectedSymptoms.containsKey(section)) {
         allSelectedSymptoms[section] = [];
@@ -268,7 +312,40 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
       }
     }
 
-    // Analyze pests
+    // Increment iteration count
+    analysisIterations++;
+    if (analysisIterations > maxIterations) {
+      StringBuffer resultMessage = StringBuffer();
+      resultMessage.writeln('Unable to narrow down to a single pest after $maxIterations attempts.');
+      resultMessage.writeln('Multiple pests match the symptoms:');
+      for (var pest in matchingPests) {
+        resultMessage.writeln('  • **$pest**');
+      }
+      resultMessage.writeln('\nExplore pest management for these pests.');
+      setState(() => _isLoading = false);
+      _showResult(
+        resultMessage.toString(),
+        [
+          ElevatedButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CoffeePestManagementPage()),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: coffeeBrown,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Explore Pest Management'),
+          ),
+        ],
+        null,
+        null,
+      );
+      return;
+    }
+
+    // Calculate pest scores with emphasis on unique symptoms
     Map<String, Map<String, dynamic>> pestMatches = {};
     for (var pest in pestSymptoms.keys) {
       double score = 0.0;
@@ -282,7 +359,7 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
           if (matchingSymptom['symptom'].isNotEmpty) {
             double weight = matchingSymptom['weight'] as double;
             if (matchingSymptom['cluster'] == 'unique') {
-              weight *= 1.2; // Boost unique symptoms
+              weight *= 1.5;
             }
             score += weight;
             matchedSymptoms.add('${matchingSymptom['symptom']} (${matchingSymptom['cluster']}, Weight: ${matchingSymptom['weight']})');
@@ -290,7 +367,7 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
         }
       }
       if (score > 0) {
-        double maxScore = pestSymptoms[pest]!.values.fold(0.0, (sum, symptoms) => sum + symptoms.fold(0.0, (s, sym) => s + (sym['cluster'] == 'unique' ? sym['weight'] * 1.2 : sym['weight'])));
+        double maxScore = pestSymptoms[pest]!.values.fold(0.0, (sum, symptoms) => sum + symptoms.fold(0.0, (s, sym) => s + (sym['cluster'] == 'unique' ? sym['weight'] * 1.5 : sym['weight'])));
         pestMatches[pest] = {
           'score': score,
           'matchedSymptoms': matchedSymptoms,
@@ -309,11 +386,9 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
       ..sort((a, b) => b.value['score'].compareTo(a.value['score']));
     var topPests = sortedPests.take(3).toList();
 
-    // Update matching pests for display
     matchingPests = topPests.map((e) => e.key).toList();
 
-    // Check if a single pest is dominant
-    bool isConclusive = topPests.length == 1 || (topPests.length > 1 && topPests[0].value['score'] > topPests[1].value['score'] * 1.2);
+    bool isConclusive = topPests.length == 1 || (topPests.length > 1 && topPests[0].value['score'] > topPests[1].value['score'] * 1.5);
 
     if (isConclusive) {
       StringBuffer resultMessage = StringBuffer();
@@ -324,12 +399,11 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
       double confidence = pestEntry.value['confidence'];
       List<String> matchedSymptoms = pestEntry.value['matchedSymptoms'];
       resultMessage.writeln('Top Matching Pest:');
-      resultMessage.writeln('$pest (Score: ${score.toStringAsFixed(1)}, Confidence: ${confidence.toStringAsFixed(1)}%)');
+      resultMessage.writeln('**$pest** (Score: ${score.toStringAsFixed(1)}, Confidence: ${confidence.toStringAsFixed(1)}%)');
       resultMessage.writeln('Matching Symptoms:');
       for (var symptom in matchedSymptoms) {
         resultMessage.writeln('  • $symptom');
       }
-      // Infer coffee stage
       String? coffeeStage;
       for (var stage in _stagePests.keys) {
         if (_stagePests[stage]!.contains(pest)) {
@@ -356,9 +430,9 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
           child: Text('Manage $pest'),
         ),
       );
+      analysisIterations = 0;
       _showResult(resultMessage.toString(), navigationButtons, pest, coffeeStage);
     } else {
-      // Inconclusive: show additional symptoms for top pests
       filteredPestSymptoms = {};
       for (var pest in matchingPests) {
         for (var section in pestSymptoms[pest]!.keys) {
@@ -369,7 +443,6 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
           filteredPestSymptoms[section]!.addAll(additional);
         }
       }
-      // Remove duplicates and empty sections
       for (var section in filteredPestSymptoms.keys.toList()) {
         filteredPestSymptoms[section] = filteredPestSymptoms[section]!.toSet().toList();
         if (filteredPestSymptoms[section]!.isEmpty) {
@@ -388,7 +461,7 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
         double score = pestEntry.value['score'];
         double confidence = pestEntry.value['confidence'];
         List<String> matchedSymptoms = pestEntry.value['matchedSymptoms'];
-        resultMessage.writeln('$pest (Score: ${score.toStringAsFixed(1)}, Confidence: ${confidence.toStringAsFixed(1)}%)');
+        resultMessage.writeln('**$pest** (Score: ${score.toStringAsFixed(1)}, Confidence: ${confidence.toStringAsFixed(1)}%)');
         resultMessage.writeln('Matching Symptoms:');
         for (var symptom in matchedSymptoms) {
           resultMessage.writeln('  • $symptom');
@@ -412,22 +485,20 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
             child: const Text('Explore Pest Management'),
           ),
         );
+        analysisIterations = 0;
       } else {
-        resultMessage.writeln('Select additional symptoms below to narrow down the pest.');
+        resultMessage.writeln('Select additional symptoms below and press the search icon to continue analysis.');
         navigationButtons.add(
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
-              setState(() {
-                _analyzePests(); // Re-run analysis
-              });
+              Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: coffeeBrown,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text('Continue Analysis'),
+            child: const Text('Select More Symptoms'),
           ),
         );
       }
@@ -449,7 +520,12 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
               children: [
                 Text('Analysis Results', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: coffeeBrown)),
                 const SizedBox(height: 8),
-                Text(message, style: const TextStyle(fontSize: 14)),
+                RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 14, color: Colors.black),
+                    children: _parseMessageToSpans(message),
+                  ),
+                ),
               ],
             ),
           ),
@@ -463,6 +539,30 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
         ),
       );
     }
+  }
+
+  List<TextSpan> _parseMessageToSpans(String message) {
+    List<TextSpan> spans = [];
+    final lines = message.split('\n');
+    for (var line in lines) {
+      if (line.contains('**')) {
+        final parts = line.split('**');
+        for (int i = 0; i < parts.length; i++) {
+          if (i % 2 == 0) {
+            spans.add(TextSpan(text: parts[i]));
+          } else {
+            spans.add(TextSpan(
+              text: parts[i],
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ));
+          }
+        }
+        spans.add(const TextSpan(text: '\n'));
+      } else {
+        spans.add(TextSpan(text: '$line\n'));
+      }
+    }
+    return spans;
   }
 
   @override
@@ -504,7 +604,7 @@ class _CoffeePestSymptomAnalysisPageState extends State<CoffeePestSymptomAnalysi
                                   style: TextStyle(fontSize: 14),
                                 ),
                               ]
-                            : matchingPests.map((pest) => Text('• $pest', style: const TextStyle(fontSize: 14))).toList(),
+                            : matchingPests.map((pest) => Text('• **$pest**', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold))).toList(),
                       ),
                     ),
                   ),
