@@ -150,12 +150,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  // ignore: deprecated_member_use
                   RadioListTile<String>(
                     secondary: _buildIcon(Icons.brightness_auto),
                     title: Text('System', style: TextStyle(color: primaryColor)),
                     value: 'System',
+                    // ignore: deprecated_member_use
                     groupValue: _appTheme,
                     activeColor: primaryColor,
+                    // ignore: deprecated_member_use
                     onChanged: (value) {
                       setModalState(() {
                         _appTheme = value!;
@@ -165,12 +168,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       });
                     },
                   ),
+                  // ignore: deprecated_member_use
                   RadioListTile<String>(
                     secondary: _buildIcon(Icons.wb_sunny),
                     title: Text('Light', style: TextStyle(color: primaryColor)),
                     value: 'Light',
+                    // ignore: deprecated_member_use
                     groupValue: _appTheme,
                     activeColor: primaryColor,
+                    // ignore: deprecated_member_use
                     onChanged: (value) {
                       setModalState(() {
                         _appTheme = value!;
@@ -180,12 +186,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       });
                     },
                   ),
+                  // ignore: deprecated_member_use
                   RadioListTile<String>(
                     secondary: _buildIcon(Icons.nightlight_round),
                     title: Text('Dark', style: TextStyle(color: primaryColor)),
                     value: 'Dark',
+                    // ignore: deprecated_member_use
                     groupValue: _appTheme,
                     activeColor: primaryColor,
+                    // ignore: deprecated_member_use
                     onChanged: (value) {
                       setModalState(() {
                         _appTheme = value!;
@@ -249,12 +258,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  // ignore: deprecated_member_use
                   RadioListTile<String>(
                     secondary: _buildIcon(Icons.straighten),
                     title: Text('Imperial (acres)', style: TextStyle(color: primaryColor)),
                     value: 'Imperial (acres)',
+                    // ignore: deprecated_member_use
                     groupValue: _unitSystem,
                     activeColor: primaryColor,
+                    // ignore: deprecated_member_use
                     onChanged: (value) {
                       setModalState(() {
                         _unitSystem = value!;
@@ -264,12 +276,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       });
                     },
                   ),
+                  // ignore: deprecated_member_use
                   RadioListTile<String>(
                     secondary: _buildIcon(Icons.square_foot),
                     title: Text('Metric (sqm)', style: TextStyle(color: primaryColor)),
                     value: 'Metric (sqm)',
+                    // ignore: deprecated_member_use
                     groupValue: _unitSystem,
                     activeColor: primaryColor,
+                    // ignore: deprecated_member_use
                     onChanged: (value) {
                       setModalState(() {
                         _unitSystem = value!;
@@ -577,8 +592,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 }
 
-// EditDisplayNameScreen
-
 class EditDisplayNameScreen extends StatefulWidget {
   const EditDisplayNameScreen({super.key});
 
@@ -683,8 +696,6 @@ class _EditDisplayNameScreenState extends State<EditDisplayNameScreen> {
     );
   }
 }
-
-// AboutScreen
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});

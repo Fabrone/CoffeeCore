@@ -15,16 +15,16 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
   bool _fieldRemindMeAt = false;
   bool _pestReminderActivities = true;
   bool _pestRemindMeAt = false;
-  bool _coffeeManagementReminderActivities = true; // Updated to coffee-specific term
-  bool _coffeeManagementRemindMeAt = false; // Updated to coffee-specific term
+  bool _coffeeManagementReminderActivities = true;
+  bool _coffeeManagementRemindMeAt = false;
 
   // Placeholder DateTime variables for "Remind Me At"
   DateTime? _fieldReminderTime;
   DateTime? _pestReminderTime;
-  DateTime? _coffeeManagementReminderTime; // Updated to coffee-specific term
+  DateTime? _coffeeManagementReminderTime;
 
   // Define coffee brown color consistent with CoffeeCore theme
-  final Color coffeeBrown = Colors.brown[700]!; // Using shade 700 from HomePage
+  final Color coffeeBrown = Colors.brown[700]!;
 
   // Helper method to create a brown circle with an icon
   Widget _buildIcon(IconData icon) {
@@ -129,7 +129,7 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
         return _fieldReminderActivities ? DateTime.now().add(const Duration(hours: 1)) : null;
       case 'pest':
         return _pestReminderActivities ? DateTime.now().add(const Duration(hours: 2)) : null;
-      case 'coffeeManagement': // Updated to coffee-specific term
+      case 'coffeeManagement':
         return _coffeeManagementReminderActivities ? DateTime.now().add(const Duration(hours: 3)) : null;
       default:
         return null;
@@ -180,7 +180,7 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                             style: TextStyle(color: coffeeBrown),
                           ),
                           value: _pushNotifications,
-                          activeColor: coffeeBrown,
+                          activeThumbColor: coffeeBrown,
                           onChanged: (bool value) {
                             setState(() {
                               _pushNotifications = value;
@@ -218,7 +218,7 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                             style: TextStyle(color: coffeeBrown),
                           ),
                           value: _weatherAlerts,
-                          activeColor: coffeeBrown,
+                          activeThumbColor: coffeeBrown,
                           onChanged: (bool value) {
                             setState(() {
                               _weatherAlerts = value;
@@ -233,7 +233,7 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                             style: TextStyle(color: coffeeBrown),
                           ),
                           value: _fieldReminderActivities,
-                          activeColor: coffeeBrown,
+                          activeThumbColor: coffeeBrown,
                           onChanged: (bool value) {
                             setState(() {
                               _fieldReminderActivities = value;
@@ -250,7 +250,7 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                           ),
                           trailing: Switch(
                             value: _fieldRemindMeAt,
-                            activeColor: coffeeBrown,
+                            activeThumbColor: coffeeBrown,
                             onChanged: _fieldReminderActivities
                                 ? (bool value) async {
                                     setState(() {
@@ -319,7 +319,7 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                             style: TextStyle(color: coffeeBrown),
                           ),
                           value: _pestReminderActivities,
-                          activeColor: coffeeBrown,
+                          activeThumbColor: coffeeBrown,
                           onChanged: (bool value) {
                             setState(() {
                               _pestReminderActivities = value;
@@ -336,7 +336,7 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                           ),
                           trailing: Switch(
                             value: _pestRemindMeAt,
-                            activeColor: coffeeBrown,
+                            activeThumbColor: coffeeBrown,
                             onChanged: _pestReminderActivities
                                 ? (bool value) async {
                                     setState(() {
@@ -399,13 +399,13 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                         ),
                         const SizedBox(height: 10),
                         SwitchListTile(
-                          secondary: _buildIcon(Icons.local_cafe), // Coffee-specific icon
+                          secondary: _buildIcon(Icons.local_cafe),
                           title: Text(
                             'Remind Me About Coffee Management Activities',
                             style: TextStyle(color: coffeeBrown),
                           ),
                           value: _coffeeManagementReminderActivities,
-                          activeColor: coffeeBrown,
+                          activeThumbColor: coffeeBrown,
                           onChanged: (bool value) {
                             setState(() {
                               _coffeeManagementReminderActivities = value;
@@ -422,7 +422,7 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                           ),
                           trailing: Switch(
                             value: _coffeeManagementRemindMeAt,
-                            activeColor: coffeeBrown,
+                            activeThumbColor: coffeeBrown,
                             onChanged: _coffeeManagementReminderActivities
                                 ? (bool value) async {
                                     setState(() {
