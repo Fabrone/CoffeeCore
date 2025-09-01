@@ -100,6 +100,8 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
         'assets/diseases/coffee_berry_disease6.png',
         'assets/diseases/coffee_berry_disease7.png',
         'assets/diseases/coffee_berry_disease8.png',
+        'assets/diseases/coffee_berry_disease9.png',
+        'assets/diseases/coffee_berry_disease10.png',
       ],
     },
     'Cercospora Leaf Spot': {
@@ -115,6 +117,13 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
         'assets/diseases/cercospora_leaf_spot2.png',
         'assets/diseases/cercospora_leaf_spot3.png',
         'assets/diseases/cercospora_leaf_spot4.png',
+        'assets/diseases/cercospora_leaf_spot5.png',
+        'assets/diseases/cercospora_leaf_spot6.png',
+        'assets/diseases/cercospora_leaf_spot7.png',
+        'assets/diseases/cercospora_leaf_spot8.png',
+        'assets/diseases/cercospora_leaf_spot9.png',
+        'assets/diseases/cercospora_leaf_spot10.png',
+        'assets/diseases/cercospora_leaf_spot11.png',
       ],
     },
     'Brown Eye Spot': {
@@ -147,6 +156,8 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
         'assets/diseases/anthracnose4.png',
         'assets/diseases/anthracnose5.png',
         'assets/diseases/anthracnose6.png',
+        'assets/diseases/anthracnose7.png',
+        'assets/diseases/anthracnose8.png',
       ],
     },
     'Phytophthora Root Rot': {
@@ -180,6 +191,9 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
         'assets/diseases/bacterial_blight2.png',
         'assets/diseases/bacterial_blight3.png',
         'assets/diseases/bacterial_blight4.png',
+        'assets/diseases/bacterial_blight5.png',
+        'assets/diseases/bacterial_blight6.png',
+        'assets/diseases/bacterial_blight7.png',
       ],
     },
     'Coffee Sooty Mold': {
@@ -215,8 +229,6 @@ class _CoffeeDiseaseManagementPageState extends State<CoffeeDiseaseManagementPag
         'assets/diseases/fusarium_root_rot4.png',
         'assets/diseases/fusarium_root_rot5.png',
         'assets/diseases/fusarium_root_rot6.png',
-        'assets/diseases/fusarium_root_rot7.png',
-        'assets/diseases/fusarium_root_rot8.png',
       ],
     },
   };
