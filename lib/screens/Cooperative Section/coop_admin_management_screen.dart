@@ -26,7 +26,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
   final Map<String, String> _collectionDisplayNames = {
     'users': 'Users',
     'marketmanagers': 'Market Managers',
-    'loanmanagers': 'Loan Managers',
+    //'loanmanagers': 'Loan Managers',
     'coffeeprices': 'Coffee Prices',
     'coffee_disease_interventions': 'Disease Data',
     'coffee_pest_interventions': 'Pest Data',
@@ -35,7 +35,7 @@ class _CoopAdminManagementScreenState extends State<CoopAdminManagementScreen> {
   final List<String> _allCollections = [
     'users',
     'marketmanagers',
-    'loanmanagers',
+    //'loanmanagers',
     'coffeeprices',
     'coffee_disease_interventions',
     'coffee_pest_interventions',

@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:coffeecore/screens/Cooperative%20Section/coffee_prices.dart';
 import 'package:coffeecore/screens/Cooperative%20Section/coop_admin_management_screen.dart';
 import 'package:coffeecore/screens/Cooperative%20Section/market_manager_screen.dart';
+import 'package:coffeecore/screens/Cooperative%20Section/produce_screen.dart';
 import 'package:coffeecore/screens/Farm%20Management/coffee_management_screen.dart';
-//import 'package:coffeecore/screens/Farm%20Management/farm_management_screen.dart';
 import 'package:coffeecore/screens/Field%20Data/coffee_soil_home_page.dart';
 import 'package:coffeecore/screens/admin/admin_management_screen.dart';
 import 'package:flutter/material.dart';
@@ -40,7 +42,9 @@ class _HomePageState extends State<HomePage> {
   String? _cooperativeName;
   final logger = Logger(printer: PrettyPrinter());
   String? _userId;
-  List<String> _userCooperatives = []; // Track user's cooperatives
+  List<String> _userCooperatives = [];
+  StreamSubscription<User?>? _authSubscription;
+  final List<StreamSubscription> _firestoreSubscriptions = [];
 
   final List<String> _carouselImages = [
     'assets/coffee_weather.jpg',
@@ -60,42 +64,63 @@ class _HomePageState extends State<HomePage> {
     _listenToAuthState();
   }
 
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    for (var subscription in _firestoreSubscriptions) {
+      subscription.cancel();
+    }
+    super.dispose();
+  }
+
   Future<void> _initializeUserData() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       _userId = user.uid;
       await _fetchUserData();
-      _listenToUserAndRoleStatus();
     } else {
-      _redirectToLogin('No user logged in');
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
     }
   }
 
-  Future<void> _fetchUserData() async {
+Future<void> _fetchUserData({int retryCount = 0, int maxRetries = 3}) async {
     if (_userId == null) return;
 
     try {
-      // Fetch user data
+      logger.i('Fetching user data for UID: $_userId');
       DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
           .collection('Users')
           .doc(_userId)
           .get();
       if (!userSnapshot.exists) {
         logger.w('User document not found in Users collection for UID: $_userId');
-        _redirectToLogin('User account not found. Please log in again.');
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User account not found. Please log in again.')),
+          );
+        }
         return;
       }
       AppUser appUser = AppUser.fromFirestore(
           userSnapshot as DocumentSnapshot<Map<String, dynamic>>, null);
 
-      // Check Admin role
+      logger.i('Checking Admin role for UID: $_userId');
       DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
           .collection('Admins')
           .doc(_userId)
           .get();
       bool isAdmin = adminSnapshot.exists;
 
-      // Check Coop Admin role
+      logger.i('Checking CoopAdmin role for UID: $_userId');
       DocumentSnapshot coopAdminSnapshot = await FirebaseFirestore.instance
           .collection('CoopAdmins')
           .doc(_userId)
@@ -105,20 +130,19 @@ class _HomePageState extends State<HomePage> {
           ? coopAdminSnapshot['cooperative']?.replaceAll('_', ' ')
           : null;
 
-      // Check Market Manager and cooperative registration
       bool isMarketManager = false;
       bool isCoopRegistered = false;
       String? cooperativeName;
       List<String> userCooperatives = [];
 
-      // Fetch cooperatives
+      logger.i('Fetching cooperatives for UID: $_userId');
       QuerySnapshot coopSnapshot =
           await FirebaseFirestore.instance.collection('cooperatives').get();
       for (var coopDoc in coopSnapshot.docs) {
         String coopId = coopDoc.id;
         String formattedCoopName = coopId.replaceAll('_', ' ');
         try {
-          // Check if user is a Market Manager
+          logger.i('Checking Market Manager role for coop: $coopId, UID: $_userId');
           DocumentSnapshot managerSnapshot = await FirebaseFirestore.instance
               .collection('${coopId}_marketmanagers')
               .doc(_userId)
@@ -128,11 +152,11 @@ class _HomePageState extends State<HomePage> {
             cooperativeName = formattedCoopName;
             isCoopRegistered = true;
             userCooperatives.add(coopId);
-            break; // Found market manager role, no need to check further
+            break;
           }
 
-          // Check if user is registered in cooperative (if not already set)
           if (!isCoopRegistered) {
+            logger.i('Checking cooperative registration for coop: $coopId, UID: $_userId');
             DocumentSnapshot userDoc = await FirebaseFirestore.instance
                 .collection('${coopId}_users')
                 .doc(_userId)
@@ -148,7 +172,6 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      // Decode profile image
       String? profileImageBase64 = appUser.profileImage;
       Uint8List? decodedImage;
       try {
@@ -178,9 +201,13 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (e) {
-      logger.e('Error fetching user data: $e');
+      logger.e('Error fetching user data (attempt ${retryCount + 1}/$maxRetries): $e');
+      if (retryCount < maxRetries && e.toString().contains('Unexpected state')) {
+        await Future.delayed(const Duration(seconds: 2));
+        return _fetchUserData(retryCount: retryCount + 1, maxRetries: maxRetries);
+      }
       if (mounted) {
-        String errorMsg = 'Error fetching user data: $e';
+        String errorMsg = 'Error fetching user data. Please try again.';
         if (e.toString().contains('unavailable')) {
           errorMsg = 'Connect to internet to access better features';
         } else if (e.toString().contains('permission-denied')) {
@@ -193,8 +220,8 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _listenToAuthState() {
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+void _listenToAuthState() {
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
       if (user != null) {
         logger.i('Auth state changed - User logged in: ${user.uid}');
         if (mounted) {
@@ -206,7 +233,6 @@ class _HomePageState extends State<HomePage> {
         }
       } else {
         logger.w('Auth state changed - No user logged in');
-        _redirectToLogin('User logged out. Please log in again.');
       }
     });
   }
@@ -214,146 +240,163 @@ class _HomePageState extends State<HomePage> {
   void _listenToUserAndRoleStatus() {
     if (_userId == null) return;
 
-    // Listen to user data
-    FirebaseFirestore.instance
-        .collection('Users')
-        .doc(_userId)
-        .snapshots()
-        .listen((userSnapshot) {
-      if (!userSnapshot.exists) {
-        _redirectToLogin('Your account has been removed.');
-      } else if (mounted) {
-        AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
-        setState(() {
-          _userData = appUser.toMap();
-          _profileImageBytes = appUser.profileImage != null &&
-                  appUser.profileImage!.isNotEmpty
-              ? base64Decode(appUser.profileImage!)
-              : null;
-        });
-      }
-    }, onError: (e) => logger.e('Error listening to user data: $e'));
+    for (var subscription in _firestoreSubscriptions) {
+      subscription.cancel();
+    }
+    _firestoreSubscriptions.clear();
 
-    // Listen to Admin role
-    FirebaseFirestore.instance
-        .collection('Admins')
-        .doc(_userId)
-        .snapshots()
-        .listen((snapshot) {
-      if (mounted) {
-        setState(() => _isMainAdmin = snapshot.exists);
-      }
-    }, onError: (e) => logger.e('Error listening to Admin role: $e'));
-
-    // Listen to Coop Admin role
-    FirebaseFirestore.instance
-        .collection('CoopAdmins')
-        .doc(_userId)
-        .snapshots()
-        .listen((snapshot) {
-      if (mounted) {
-        setState(() {
-          _isCoopAdmin = snapshot.exists;
-          _cooperativeName = snapshot.exists &&
-                  snapshot.data()?['cooperative'] != null
-              ? snapshot['cooperative'].replaceAll('_', ' ')
-              : _cooperativeName;
-          if (snapshot.exists &&
-              snapshot.data()?['cooperative'] != null &&
-              !_userCooperatives.contains(snapshot['cooperative'])) {
-            _userCooperatives.add(snapshot['cooperative']);
-          }
-        });
-      }
-    }, onError: (e) => logger.e('Error listening to CoopAdmin role: $e'));
-
-    // Listen to Market Manager role for each cooperative the user is part of
-    for (String coopId in _userCooperatives) {
+    _firestoreSubscriptions.add(
       FirebaseFirestore.instance
-          .collection('${coopId}_marketmanagers')
+          .collection('Users')
+          .doc(_userId)
+          .snapshots()
+          .listen((userSnapshot) {
+        if (mounted) {
+          AppUser appUser = AppUser.fromFirestore(userSnapshot, null);
+          setState(() {
+            _userData = appUser.toMap();
+            _profileImageBytes = appUser.profileImage != null &&
+                    appUser.profileImage!.isNotEmpty
+                ? base64Decode(appUser.profileImage!)
+                : null;
+          });
+        }
+      }, onError: (e) {
+        logger.e('Error listening to user data: $e');
+      }),
+    );
+
+    _firestoreSubscriptions.add(
+      FirebaseFirestore.instance
+          .collection('Admins')
           .doc(_userId)
           .snapshots()
           .listen((snapshot) {
         if (mounted) {
-          bool isMarketManager = snapshot.exists;
-          String? coopName =
-              isMarketManager ? coopId.replaceAll('_', ' ') : _cooperativeName;
+          setState(() => _isMainAdmin = snapshot.exists);
+        }
+      }, onError: (e) {
+        logger.e('Error listening to Admin role: $e');
+      }),
+    );
+
+    _firestoreSubscriptions.add(
+      FirebaseFirestore.instance
+          .collection('CoopAdmins')
+          .doc(_userId)
+          .snapshots()
+          .listen((snapshot) {
+        if (mounted) {
           setState(() {
-            _isMarketManager = isMarketManager;
-            if (isMarketManager) {
-              _isCoopRegistered = true;
-              _cooperativeName = coopName;
+            _isCoopAdmin = snapshot.exists;
+            _cooperativeName = snapshot.exists &&
+                    snapshot.data()?['cooperative'] != null
+                ? snapshot['cooperative'].replaceAll('_', ' ')
+                : _cooperativeName;
+            if (snapshot.exists &&
+                snapshot.data()?['cooperative'] != null &&
+                !_userCooperatives.contains(snapshot['cooperative'])) {
+              _userCooperatives.add(snapshot['cooperative']);
             }
           });
-          logger.i(
-              'Market Manager status updated for $coopId: $_isMarketManager');
         }
-      }, onError: (e) => logger.e('Error listening to Market Manager for $coopId: $e'));
+      }, onError: (e) {
+        logger.e('Error listening to CoopAdmin role: $e');
+      }),
+    );
+
+    for (String coopId in _userCooperatives) {
+      _firestoreSubscriptions.add(
+        FirebaseFirestore.instance
+            .collection('${coopId}_marketmanagers')
+            .doc(_userId)
+            .snapshots()
+            .listen((snapshot) {
+          if (mounted) {
+            bool isMarketManager = snapshot.exists;
+            String? coopName =
+                isMarketManager ? coopId.replaceAll('_', ' ') : _cooperativeName;
+            setState(() {
+              _isMarketManager = isMarketManager;
+              if (isMarketManager) {
+                _isCoopRegistered = true;
+                _cooperativeName = coopName;
+              }
+            });
+            logger.i(
+                'Market Manager status updated for $coopId: $_isMarketManager');
+          }
+        }, onError: (e) {
+          logger.e('Error listening to Market Manager for $coopId: $e');
+        }),
+      );
     }
 
-    // Listen to cooperatives for registration status and new cooperatives
-    FirebaseFirestore.instance
-        .collection('cooperatives')
-        .snapshots()
-        .listen((coopSnapshot) async {
-      List<String> newCooperatives = [];
-      bool foundCoopRegistered = false;
-      String? tempCoopName;
+    _firestoreSubscriptions.add(
+      FirebaseFirestore.instance
+          .collection('cooperatives')
+          .snapshots()
+          .listen((coopSnapshot) async {
+        List<String> newCooperatives = [];
+        bool foundCoopRegistered = false;
+        String? tempCoopName;
 
-      for (var coopDoc in coopSnapshot.docs) {
-        String coopId = coopDoc.id;
-        String formattedCoopName = coopId.replaceAll('_', ' ');
-        if (!_userCooperatives.contains(coopId)) {
-          try {
-            DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
-                .collection('${coopId}_users')
-                .doc(_userId)
-                .get();
-            if (userSnapshot.exists && mounted) {
-              newCooperatives.add(coopId);
-              foundCoopRegistered = true;
-              tempCoopName = formattedCoopName;
+        for (var coopDoc in coopSnapshot.docs) {
+          String coopId = coopDoc.id;
+          String formattedCoopName = coopId.replaceAll('_', ' ');
+          if (!_userCooperatives.contains(coopId)) {
+            try {
+              DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+                  .collection('${coopId}_users')
+                  .doc(_userId)
+                  .get();
+              if (userSnapshot.exists && mounted) {
+                newCooperatives.add(coopId);
+                foundCoopRegistered = true;
+                tempCoopName = formattedCoopName;
+              }
+            } catch (e) {
+              logger.i('Not registered in $coopId: $e');
             }
-          } catch (e) {
-            logger.i('Not registered in $coopId: $e');
           }
         }
-      }
 
-      if (mounted && newCooperatives.isNotEmpty) {
-        setState(() {
-          _userCooperatives.addAll(newCooperatives);
-          if (foundCoopRegistered && !_isMarketManager && !_isCoopAdmin) {
-            _isCoopRegistered = true;
-            _cooperativeName = tempCoopName;
-          }
-        });
-      }
-    }, onError: (e) => logger.e('Error listening to cooperatives: $e'));
-  }
-
-  void _redirectToLogin(String message) {
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-    }
+        if (mounted && newCooperatives.isNotEmpty) {
+          setState(() {
+            _userCooperatives.addAll(newCooperatives);
+            if (foundCoopRegistered && !_isMarketManager && !_isCoopAdmin) {
+              _isCoopRegistered = true;
+              _cooperativeName = tempCoopName;
+            }
+          });
+        }
+      }, onError: (e) {
+        logger.e('Error listening to cooperatives: $e');
+      }),
+    );
   }
 
   Future<void> _handleLogout() async {
+    logger.i('Starting logout process for user: $_userId');
     try {
+      logger.i('Canceling ${_firestoreSubscriptions.length} Firestore subscriptions');
+      for (var subscription in _firestoreSubscriptions) {
+        subscription.cancel();
+      }
+      _firestoreSubscriptions.clear();
+      logger.i('Signing out from Firebase Auth');
       await FirebaseAuth.instance.signOut();
-      if (!mounted) return;
-      Navigator.pop(context);
+      if (!mounted) {
+        logger.w('Widget not mounted, skipping navigation');
+        return;
+      }
+      logger.i('Navigating to LoginScreen');
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
     } catch (e) {
+      logger.e('Error logging out: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error logging out: $e')),
@@ -446,6 +489,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildRoleBasedButtons() {
+    logger.i('Building role-based buttons - isMainAdmin: $_isMainAdmin, isCoopAdmin: $_isCoopAdmin, isMarketManager: $_isMarketManager, isCoopRegistered: $_isCoopRegistered, cooperativeName: $_cooperativeName');
     if (_isMainAdmin) {
       return Padding(
         padding: const EdgeInsets.all(16.0),
@@ -463,8 +507,20 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             Expanded(child: _buildMenuButton(context)),
-            const SizedBox(width: 16.0), 
+            const SizedBox(width: 16.0),
             Expanded(child: _buildMarketManagerButton()),
+          ],
+        ),
+      );
+    } else if (_isCoopRegistered) {
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Expanded(child: _buildMenuButton(context)),
+            const SizedBox(width: 16.0),
+            Expanded(child: _buildProduceButton()),
           ],
         ),
       );
@@ -524,6 +580,32 @@ class _HomePageState extends State<HomePage> {
       },
       icon: const Icon(Icons.price_change, color: Colors.white),
       label: const Text('Set Prices', style: TextStyle(color: Colors.white)),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        backgroundColor: Colors.brown[700],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _buildProduceButton() {
+    return ElevatedButton.icon(
+      onPressed: () {
+        if (_cooperativeName != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProduceScreen(cooperativeName: _cooperativeName!),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No cooperative assigned')),
+          );
+        }
+      },
+      icon: const Icon(Icons.landscape, color: Colors.white),
+      label: const Text('Produce', style: TextStyle(color: Colors.white)),
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         backgroundColor: Colors.brown[700],
