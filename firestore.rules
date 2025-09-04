@@ -8,18 +8,18 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-             exists(/databases/$(database)/documents/Admins/$(request.auth.uid));
+            exists(/databases/$(database)/documents/Admins/$(request.auth.uid));
     }
 
     function isCoopAdmin(coopId) {
       return isAuthenticated() &&
-             exists(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid)).data.cooperative == coopId;
+            exists(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid)).data.cooperative == coopId;
     }
 
     function isMarketManager(coopId) {
       return isAuthenticated() &&
-             exists(/databases/$(database)/documents/$(coopId + '_marketmanagers')/$(request.auth.uid));
+            exists(/databases/$(database)/documents/$(coopId + '_marketmanagers')/$(request.auth.uid));
     }
 
     function isUserInCoop(coopId, userId) {
@@ -32,29 +32,29 @@ service cloud.firestore {
 
     function isAnyCoopAdmin() {
       return isAuthenticated() &&
-             exists(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid));
+            exists(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid));
     }
 
     // SoilData collection
     match /SoilData/{documentId} {
       allow read: if isAuthenticated() &&
-                   (request.auth.uid == resource.data.userId ||
+                  (request.auth.uid == resource.data.userId ||
                     isAdmin() ||
                     (resource.data.userId != null &&
-                     isCoopAdmin(getCoopAdminCooperative()) &&
-                     isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
+                    isCoopAdmin(getCoopAdminCooperative()) &&
+                    isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
       allow create: if isAuthenticated() &&
                       request.auth.uid == request.resource.data.userId;
       allow update: if isAuthenticated() &&
                       (request.auth.uid == resource.data.userId ||
-                       isAdmin() ||
-                       (resource.data.userId != null &&
+                      isAdmin() ||
+                      (resource.data.userId != null &&
                         isCoopAdmin(getCoopAdminCooperative()) &&
                         isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
       allow delete: if isAdmin() ||
                       (resource.data.userId != null &&
-                       isCoopAdmin(getCoopAdminCooperative()) &&
-                       isUserInCoop(getCoopAdminCooperative(), resource.data.userId));
+                      isCoopAdmin(getCoopAdminCooperative()) &&
+                      isUserInCoop(getCoopAdminCooperative(), resource.data.userId));
     }
 
     // Manuals collection
@@ -62,7 +62,7 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && (isAdmin() || isAnyCoopAdmin()) &&
                     request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && 
+      allow update: if isAuthenticated() &&
                     (isAdmin() || isAnyCoopAdmin()) &&
                     resource.data.userId == request.auth.uid;
       allow delete: if isAdmin();
@@ -92,11 +92,28 @@ service cloud.firestore {
       }
     }
 
+    // FarmData collection
+    match /FarmData/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      allow read, write: if isAdmin();
+      match /Cycles/{cycleName} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+        allow read, write: if isAdmin();
+      }
+    }
+
     // Cooperatives collection
     match /cooperatives/{coopId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && exists(/databases/$(database)/documents/CoopAdmins/$(request.auth.uid));
       allow update, delete: if isAdmin();
+      // Logs collection for market managers and coop admins
+      match /logs/{logId} {
+        allow create: if isCoopAdmin(coopId) || isMarketManager(coopId);
+        allow read: if isCoopAdmin(coopId) || isMarketManager(coopId) || isAdmin();
+        allow update, delete: if isAdmin();
+      }
+      // Coop admin logs (existing)
       match /logs/coop_admin_logs/logs/{logId} {
         allow create, read: if isCoopAdmin(coopId);
         allow read, write: if isAdmin();
@@ -107,17 +124,18 @@ service cloud.firestore {
     match /{collection}/{documentId} {
       // Users (e.g., {coopId}_users)
       allow read: if collection.matches('.*_users') &&
-                   (isAdmin() ||
+                  (isAdmin() ||
                     isCoopAdmin(collection.replace('_users', '')) ||
+                    isMarketManager(collection.replace('_users', '')) ||
                     (isAuthenticated() && request.auth.uid == documentId));
       allow create: if collection.matches('.*_users') &&
-                      isAuthenticated() && request.auth.uid == documentId;
+                    isAuthenticated() && request.auth.uid == documentId;
       allow write, delete: if collection.matches('.*_users') &&
-                           (isAdmin() || isCoopAdmin(collection.replace('_users', '')));
+                          (isAdmin() || isCoopAdmin(collection.replace('_users', '')));
 
       // Market managers (e.g., {coopId}_marketmanagers)
       allow read: if collection.matches('.*_marketmanagers') &&
-                   (isAdmin() ||
+                  (isAdmin() ||
                     isCoopAdmin(collection.replace('_marketmanagers', '')) ||
                     (isAuthenticated() && request.auth.uid == documentId));
       allow create, update: if collection.matches('.*_marketmanagers') &&
@@ -126,7 +144,7 @@ service cloud.firestore {
 
       // Loan managers (e.g., {coopId}_loanmanagers)
       allow read: if collection.matches('.*_loanmanagers') &&
-                   (isAdmin() ||
+                  (isAdmin() ||
                     isCoopAdmin(collection.replace('_loanmanagers', '')) ||
                     (isAuthenticated() && request.auth.uid == documentId));
       allow create, update: if collection.matches('.*_loanmanagers') &&
@@ -137,90 +155,112 @@ service cloud.firestore {
       allow read: if collection.matches('.*_coffeeprices') && isAuthenticated();
       allow create, update, delete: if collection.matches('.*_coffeeprices') &&
                                     (isAdmin() ||
-                                     isCoopAdmin(collection.replace('_coffeeprices', '')) ||
-                                     isMarketManager(collection.replace('_coffeeprices', '')));
+                                    isCoopAdmin(collection.replace('_coffeeprices', '')) ||
+                                    isMarketManager(collection.replace('_coffeeprices', '')));
+
+      // ProduceData collection (e.g., {coopId}_ProduceData)
+      allow read: if collection.matches('.*_ProduceData') &&
+                  (isAdmin() ||
+                    isCoopAdmin(collection.replace('_ProduceData', '')) ||
+                    (isAuthenticated() && request.auth.uid == documentId));
+      allow create: if collection.matches('.*_ProduceData') &&
+                      isAuthenticated() && request.auth.uid == documentId;
+      allow update: if collection.matches('.*_ProduceData') &&
+                      (isAdmin() ||
+                      isCoopAdmin(collection.replace('_ProduceData', '')) ||
+                      (isAuthenticated() && request.auth.uid == documentId));
+      allow delete: if collection.matches('.*_ProduceData') &&
+                      (isAdmin() || isCoopAdmin(collection.replace('_ProduceData', '')));
+
+      // FarmerProduce collection (e.g., {coopId}_FarmerProduce)
+      allow read: if collection.matches('.*_FarmerProduce') &&
+                  (isAdmin() ||
+                    isCoopAdmin(collection.replace('_FarmerProduce', '')) ||
+                    isMarketManager(collection.replace('_FarmerProduce', '')) ||
+                    (isAuthenticated() && request.auth.uid == documentId));
+      allow create, update: if collection.matches('.*_FarmerProduce') &&
+                            (isAdmin() ||
+                            isCoopAdmin(collection.replace('_FarmerProduce', '')) ||
+                            isMarketManager(collection.replace('_FarmerProduce', '')) ||
+                            (isAuthenticated() && request.auth.uid == documentId));
+      allow delete: if collection.matches('.*_FarmerProduce') &&
+                      (isAdmin() || isCoopAdmin(collection.replace('_FarmerProduce', '')));
+
+      // Subcollections (e.g., {coopId}_FarmerProduce/{userId}/submissions)
+      match /submissions/{submissionId} {
+        allow read: if collection.matches('.*_FarmerProduce') &&
+                    (isAdmin() ||
+                      isCoopAdmin(collection.replace('_FarmerProduce', '')) ||
+                      isMarketManager(collection.replace('_FarmerProduce', '')) ||
+                      (isAuthenticated() && request.auth.uid == documentId));
+        allow create, update: if collection.matches('.*_FarmerProduce') &&
+                              (isAdmin() ||
+                              isCoopAdmin(collection.replace('_FarmerProduce', '')) ||
+                              isMarketManager(collection.replace('_FarmerProduce', '')) ||
+                              (isAuthenticated() && request.auth.uid == documentId));
+        allow delete: if collection.matches('.*_FarmerProduce') &&
+                        (isAdmin() || isCoopAdmin(collection.replace('_FarmerProduce', '')));
+      }
     }
 
     // New Activity Data collection
     match /Activities/{activityId} {
-      allow read: if isAuthenticated(); // All authenticated users can read activities
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId; // Only the user can create their activities
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin()); // Users can update their own activities or admins can update any
-      allow delete: if isAdmin() || (request.auth.uid == resource.data.userId); // Users can delete their own activities or admins can delete any
-    }
-
-    // Legacy coffee soil data
-    match /coffee_soil_data/{documentId} {
-      allow read: if isAuthenticated() &&
-                   (request.auth.uid == resource.data.userId ||
-                    isAdmin() ||
-                    (resource.data.userId != null &&
-                     isCoopAdmin(getCoopAdminCooperative()) &&
-                     isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
-      allow create: if isAuthenticated() &&
-                      request.auth.uid == request.resource.data.userId;
-      allow update: if isAuthenticated() &&
-                      (request.auth.uid == resource.data.userId ||
-                       isAdmin() ||
-                       (resource.data.userId != null &&
-                        isCoopAdmin(getCoopAdminCooperative()) &&
-                        isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
-      allow delete: if isAdmin() ||
-                      (resource.data.userId != null &&
-                       isCoopAdmin(getCoopAdminCooperative()) &&
-                       isUserInCoop(getCoopAdminCooperative(), resource.data.userId));
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow delete: if isAdmin() || (request.auth.uid == resource.data.userId);
     }
 
     // Coffee pest interventions
     match /coffee_pest_interventions/{documentId} {
       allow read: if isAuthenticated() &&
-                   (request.auth.uid == resource.data.userId ||
+                  (request.auth.uid == resource.data.userId ||
                     isAdmin() ||
                     (resource.data.userId != null &&
-                     isCoopAdmin(getCoopAdminCooperative()) &&
-                     isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
+                    isCoopAdmin(getCoopAdminCooperative()) &&
+                    isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
       allow create: if isAuthenticated() &&
                       (request.auth.uid == request.resource.data.userId ||
-                       isAdmin() ||
-                       (request.resource.data.userId != null &&
+                      isAdmin() ||
+                      (request.resource.data.userId != null &&
                         isCoopAdmin(getCoopAdminCooperative()) &&
                         isUserInCoop(getCoopAdminCooperative(), request.resource.data.userId)));
       allow update: if isAuthenticated() &&
                       (request.auth.uid == resource.data.userId ||
-                       isAdmin() ||
-                       (resource.data.userId != null &&
+                      isAdmin() ||
+                      (resource.data.userId != null &&
                         isCoopAdmin(getCoopAdminCooperative()) &&
                         isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
       allow delete: if isAdmin() ||
                       (resource.data.userId != null &&
-                       isCoopAdmin(getCoopAdminCooperative()) &&
-                       isUserInCoop(getCoopAdminCooperative(), resource.data.userId));
+                      isCoopAdmin(getCoopAdminCooperative()) &&
+                      isUserInCoop(getCoopAdminCooperative(), resource.data.userId));
     }
 
     // Coffee disease interventions
     match /coffee_disease_interventions/{documentId} {
       allow read: if isAuthenticated() &&
-                   (request.auth.uid == resource.data.userId ||
+                  (request.auth.uid == resource.data.userId ||
                     isAdmin() ||
                     (resource.data.userId != null &&
-                     isCoopAdmin(getCoopAdminCooperative()) &&
-                     isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
+                    isCoopAdmin(getCoopAdminCooperative()) &&
+                    isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
       allow create: if isAuthenticated() &&
                       (request.auth.uid == request.resource.data.userId ||
-                       isAdmin() ||
-                       (request.resource.data.userId != null &&
+                      isAdmin() ||
+                      (request.resource.data.userId != null &&
                         isCoopAdmin(getCoopAdminCooperative()) &&
                         isUserInCoop(getCoopAdminCooperative(), request.resource.data.userId)));
       allow update: if isAuthenticated() &&
                       (request.auth.uid == resource.data.userId ||
-                       isAdmin() ||
-                       (resource.data.userId != null &&
+                      isAdmin() ||
+                      (resource.data.userId != null &&
                         isCoopAdmin(getCoopAdminCooperative()) &&
                         isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
       allow delete: if isAuthenticated() &&
                       (request.auth.uid == resource.data.userId ||
-                       isAdmin() ||
-                       (resource.data.userId != null &&
+                      isAdmin() ||
+                      (resource.data.userId != null &&
                         isCoopAdmin(getCoopAdminCooperative()) &&
                         isUserInCoop(getCoopAdminCooperative(), resource.data.userId)));
     }

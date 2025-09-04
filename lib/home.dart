@@ -578,8 +578,8 @@ void _listenToAuthState() {
           MaterialPageRoute(builder: (context) => const MarketManagerScreen()),
         );
       },
-      icon: const Icon(Icons.price_change, color: Colors.white),
-      label: const Text('Set Prices', style: TextStyle(color: Colors.white)),
+      icon: const Icon(Icons.storefront_sharp, color: Colors.white),
+      label: const Text('Market Operations', style: TextStyle(color: Colors.white)),
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         backgroundColor: Colors.brown[700],
